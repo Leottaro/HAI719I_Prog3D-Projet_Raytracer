@@ -65,12 +65,92 @@ public:
         triangles[1][2] = 3;
     }
 
+    void translate(Vec3 const &translation) {
+        m_bottom_left += translation;
+        Mesh::translate(translation);
+    }
+
+    void apply_transformation_matrix(Mat3 transform) {
+        m_normal = transform * m_normal;
+        m_bottom_left = transform * m_bottom_left;
+        m_right_vector = transform * m_right_vector;
+        m_up_vector = transform * m_up_vector;
+        Mesh::apply_transformation_matrix(transform);
+    }
+
+    void scale(Vec3 const &scale) {
+        Mat3 scale_matrix(scale[0], 0., 0.,
+                          0., scale[1], 0.,
+                          0., 0., scale[2]); // Matrice de transformation de mise à l'échelle
+        apply_transformation_matrix(scale_matrix);
+    }
+
+    void rotate_x(float angle) {
+        float x_angle = angle * M_PI / 180.;
+        Mat3 x_rotation(1., 0., 0.,
+                        0., cos(x_angle), -sin(x_angle),
+                        0., sin(x_angle), cos(x_angle));
+        apply_transformation_matrix(x_rotation);
+    }
+
+    void rotate_y(float angle) {
+        float y_angle = angle * M_PI / 180.;
+        Mat3 y_rotation(cos(y_angle), 0., sin(y_angle),
+                        0., 1., 0.,
+                        -sin(y_angle), 0., cos(y_angle));
+        apply_transformation_matrix(y_rotation);
+    }
+
+    void rotate_z(float angle) {
+        float z_angle = angle * M_PI / 180.;
+        Mat3 z_rotation(cos(z_angle), -sin(z_angle), 0.,
+                        sin(z_angle), cos(z_angle), 0.,
+                        0., 0., 1.);
+        apply_transformation_matrix(z_rotation);
+    }
+
     RaySquareIntersection intersect(const Ray &ray) const {
         RaySquareIntersection intersection;
+        intersection.intersectionExists = false;
 
-        // TODO calculer l'intersection rayon quad
+        /*
+        equation paramétrique du rayon : R(t) = O + tD      (avec O l'origine et D la direction)
+        Un point X est sur le plan si : N·(X-C) = 0         (avec C un point du plan et N sa normale)
+        On remplace par le point du rayon : N·(O + tD - C) = 0
+        On réarrange bien : t = - N·(O-C) / N·D
+        On a P = O+tD l'intersection du rayon au plan.
+        Notons qu'un vecteur A peut se décomposer en deux vecteurs u et v de cette manière: A = u * (A·U/U·U) + v * (A·V/V·V)
+        On peut donc retrouver les u et v de notre point P : u = PC·U/U·U et v = PC·V/V·V
+        Le point P est dans le rectangle il se décompose en un u et v dans [0; 1]
+        */
+
+        const Vec3 &O = ray.origin();
+        const Vec3 &D = ray.direction();
+        const Vec3 &C = this->m_bottom_left;
+        const Vec3 &N = this->m_normal;
+
+        // nous sommes derrière le triangle donc pas d'intersection
+        if (Vec3::dot(D, N) > 0) {
+            return intersection;
+        }
+
+        float t = -(Vec3::dot(N, O - C)) / Vec3::dot(N, D);
+
+        Vec3 P = O + t * D;
+        Vec3 PC = P - C;
+        float u = Vec3::dot(PC, this->m_right_vector) / this->m_right_vector.squareNorm();
+        float v = Vec3::dot(PC, this->m_up_vector) / this->m_up_vector.squareNorm();
+
+        if (0 <= u && u <= 1 && 0 <= v && v <= 1) {
+            intersection.intersectionExists = true;
+            intersection.t = t;
+            intersection.u = u;
+            intersection.v = v;
+            intersection.intersection = P;
+            intersection.normal = N;
+        }
 
         return intersection;
     }
 };
-#endif // SQUARE_H
+#endif

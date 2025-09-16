@@ -76,9 +76,87 @@ public:
         }
     }
 
+    void translate(Vec3 const &translation) {
+        m_center += translation;
+        Mesh::translate(translation);
+    }
+
+    void apply_transformation_matrix(Mat3 transform) {
+        m_center = transform * m_center;
+        Mesh::apply_transformation_matrix(transform);
+    }
+
+    void scale(Vec3 const &scale) {
+        Mat3 scale_matrix(scale[0], 0., 0.,
+                          0., scale[1], 0.,
+                          0., 0., scale[2]); // Matrice de transformation de mise à l'échelle
+        apply_transformation_matrix(scale_matrix);
+    }
+
+    void rotate_x(float angle) {
+        float x_angle = angle * M_PI / 180.;
+        Mat3 x_rotation(1., 0., 0.,
+                        0., cos(x_angle), -sin(x_angle),
+                        0., sin(x_angle), cos(x_angle));
+        apply_transformation_matrix(x_rotation);
+    }
+
+    void rotate_y(float angle) {
+        float y_angle = angle * M_PI / 180.;
+        Mat3 y_rotation(cos(y_angle), 0., sin(y_angle),
+                        0., 1., 0.,
+                        -sin(y_angle), 0., cos(y_angle));
+        apply_transformation_matrix(y_rotation);
+    }
+
+    void rotate_z(float angle) {
+        float z_angle = angle * M_PI / 180.;
+        Mat3 z_rotation(cos(z_angle), -sin(z_angle), 0.,
+                        sin(z_angle), cos(z_angle), 0.,
+                        0., 0., 1.);
+        apply_transformation_matrix(z_rotation);
+    }
+
     RaySphereIntersection intersect(const Ray &ray) const {
         RaySphereIntersection intersection;
-        // TODO calcul l'intersection rayon sphere
+        intersection.intersectionExists = false;
+
+        /*
+        equation paramétrique du rayon : R(t) = O + tD    (avec O l'origine et D la direction)
+        un point X est sur la sphère si ||X - C||^2 = r^2 (avec C le centre et r le radius)
+        on sait que pour tout V, ||V||^2 = V·V donc l'équation de la sphère deviens (X-C)·(X-C) = r^2
+        On remplace avec un point de la droite : (O+tD-C)·(O+tD-C) = r^2
+        On développe : t^2 * ||D||^2 + t * 2(D·(O-C)) + ||O-C||^2 - r^2 = 0
+        On a une équation du second degré avec a = ||D||^2 = 1 (car d normalisé), b = 2*(D·(O-C)) et c = ||O-C||^2 - r^2
+        */
+
+        const Vec3 &O = ray.origin();
+        const Vec3 &D = ray.direction();
+        const Vec3 &C = this->m_center;
+        float r = this->m_radius;
+        Vec3 CO = O - C;
+
+        float a = D.squareNorm();
+        float b = 2 * Vec3::dot(D, CO);
+        float c = CO.squareNorm() - r * r;
+        float delta = b * b - 4 * a * c;
+
+        if (delta < 0) {
+            return intersection;
+        }
+        float temp = sqrt(delta);
+
+        intersection.intersectionExists = true;
+        intersection.t = (-b - temp) / (2 * a);
+        intersection.intersection = O + intersection.t * D;
+        intersection.normal = intersection.intersection - C;
+        intersection.normal.normalize();
+        Vec3 spherical_normal = EuclideanCoordinatesToSpherical(intersection.normal);
+        intersection.theta = spherical_normal[0];
+        intersection.phi = spherical_normal[1];
+        float second_t = (-b + temp) / (2 * a);
+        intersection.secondintersection = O + second_t * D;
+
         return intersection;
     }
 };
