@@ -130,9 +130,9 @@ public:
         const Vec3 &N = this->m_normal;
 
         // nous sommes derrière le triangle donc pas d'intersection
-        if (Vec3::dot(D, N) > 0) {
-            return intersection;
-        }
+        // if (Vec3::dot(D, N) > 0) {
+        //     return intersection;
+        // }
 
         float t = -(Vec3::dot(N, O - C)) / Vec3::dot(N, D);
 

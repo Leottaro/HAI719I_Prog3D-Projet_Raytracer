@@ -67,16 +67,16 @@ public:
         }
     }
 
-    RaySceneIntersection computeIntersection(Ray const &ray) {
+    RaySceneIntersection computeIntersection(Ray const &ray, float min_t = 0, float max_t = FLT_MAX) {
         RaySceneIntersection result;
         result.intersectionExists = false;
         result.objectIndex = UINT32_MAX;
-        result.t = FLT_MAX;
+        result.t = max_t;
         result.typeOfIntersectedObject = UINT32_MAX;
 
         for (unsigned int i = 0; i < spheres.size(); i++) {
             RaySphereIntersection intersection = spheres[i].intersect(ray);
-            if (intersection.intersectionExists && intersection.t && intersection.t < result.t) {
+            if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
                 result.intersectionExists = true;
                 result.objectIndex = i;
                 result.raySphereIntersection = intersection;
@@ -87,7 +87,7 @@ public:
 
         for (unsigned int i = 0; i < squares.size(); i++) {
             RaySquareIntersection intersection = squares[i].intersect(ray);
-            if (intersection.intersectionExists && intersection.t && intersection.t < result.t) {
+            if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
                 result.intersectionExists = true;
                 result.objectIndex = i;
                 result.raySquareIntersection = intersection;
@@ -98,7 +98,7 @@ public:
 
         for (unsigned int i = 0; i < meshes.size(); i++) {
             RayTriangleIntersection intersection = meshes[i].intersect(ray);
-            if (intersection.intersectionExists && intersection.t && intersection.t < result.t) {
+            if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
                 result.intersectionExists = true;
                 result.objectIndex = i;
                 result.rayMeshIntersection = intersection;
@@ -110,8 +110,8 @@ public:
         return result;
     }
 
-    Vec3 rayTraceRecursive(Ray ray, int NRemainingBounces) {
-        RaySceneIntersection raySceneIntersection = computeIntersection(ray);
+    Vec3 rayTraceRecursive(Ray ray, float min_t, float max_t, int NRemainingBounces) {
+        RaySceneIntersection raySceneIntersection = computeIntersection(ray, min_t, max_t);
         Vec3 color = Vec3(0., 0., 0.);
         if (raySceneIntersection.intersectionExists) {
             switch (raySceneIntersection.typeOfIntersectedObject) {
@@ -129,8 +129,8 @@ public:
         return color;
     }
 
-    Vec3 rayTrace(Ray const &rayStart) {
-        Vec3 color = rayTraceRecursive(rayStart, 0);
+    Vec3 rayTrace(Ray const &rayStart, float min_t, float max_t) {
+        Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, 0);
         return color;
     }
 
