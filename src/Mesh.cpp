@@ -2,11 +2,13 @@
 #include <fstream>
 #include <iostream>
 
-void Mesh::loadOFF(const std::string &filename) {
-    std::ifstream in(filename.c_str());
+using namespace std;
+
+void Mesh::loadOFF(const string &filename) {
+    ifstream in(filename.c_str());
     if (!in)
         exit(EXIT_FAILURE);
-    std::string offString;
+    string offString;
     unsigned int sizeV, sizeT, tmp;
     in >> offString >> sizeV >> sizeT >> tmp;
     vertices.resize(sizeV);

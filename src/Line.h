@@ -5,6 +5,8 @@
 #include <cmath>
 #include <iostream>
 
+using namespace std;
+
 class Line {
 private:
     Vec3 m_origin, m_direction;
@@ -35,7 +37,7 @@ public:
     }
 };
 
-static inline std::ostream &operator<<(std::ostream &s, Line const &l) {
+static inline ostream &operator<<(ostream &s, Line const &l) {
     s << l.origin() << " " << l.direction();
     return s;
 }

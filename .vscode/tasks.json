@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-if-needed",
+            "type": "shell",
+            "command": "[ -f main ] || make",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        }
+	]
+}

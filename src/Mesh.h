@@ -5,12 +5,12 @@
 #include "Ray.h"
 #include "Triangle.h"
 #include "Vec3.h"
+#include <GL/glut.h>
+#include <cfloat>
 #include <string>
 #include <vector>
 
-#include <GL/glut.h>
-
-#include <cfloat>
+using namespace std;
 
 // -------------------------------------------
 // Basic Mesh class
@@ -96,17 +96,17 @@ protected:
     }
 
 public:
-    std::vector<MeshVertex> vertices;
-    std::vector<MeshTriangle> triangles;
+    vector<MeshVertex> vertices;
+    vector<MeshTriangle> triangles;
 
-    std::vector<float> positions_array;
-    std::vector<float> normalsArray;
-    std::vector<float> uvs_array;
-    std::vector<unsigned int> triangles_array;
+    vector<float> positions_array;
+    vector<float> normalsArray;
+    vector<float> uvs_array;
+    vector<unsigned int> triangles_array;
 
     Material material;
 
-    void loadOFF(const std::string &filename);
+    void loadOFF(const string &filename);
     void recomputeNormals();
     void centerAndScaleToUnit();
     void scaleUnit();

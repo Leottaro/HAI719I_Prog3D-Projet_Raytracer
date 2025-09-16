@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <iostream>
 
+using namespace std;
+
 class Vec3;
 static inline Vec3 operator+(Vec3 const &a, Vec3 const &b);
 static inline Vec3 operator*(float a, Vec3 const &b);
@@ -109,11 +111,11 @@ static inline Vec3 operator*(Vec3 const &b, float a) {
 static inline Vec3 operator/(Vec3 const &a, float b) {
     return Vec3(a[0] / b, a[1] / b, a[2] / b);
 }
-static inline std::ostream &operator<<(std::ostream &s, Vec3 const &p) {
+static inline ostream &operator<<(ostream &s, Vec3 const &p) {
     s << p[0] << " " << p[1] << " " << p[2];
     return s;
 }
-static inline std::istream &operator>>(std::istream &s, Vec3 &p) {
+static inline istream &operator>>(istream &s, Vec3 &p) {
     s >> p[0] >> p[1] >> p[2];
     return s;
 }
@@ -276,11 +278,11 @@ inline static Mat3 operator*(float s, const Mat3 &m) {
                 m(2, 2) * s);
 }
 
-inline static std::ostream &operator<<(std::ostream &s, Mat3 const &m) {
-    s << m(0, 0) << " \t" << m(0, 1) << " \t" << m(0, 2) << std::endl
+inline static ostream &operator<<(ostream &s, Mat3 const &m) {
+    s << m(0, 0) << " \t" << m(0, 1) << " \t" << m(0, 2) << endl
       << m(1, 0) << " \t" << m(1, 1) << " \t" << m(1, 2)
-      << std::endl
-      << m(2, 0) << " \t" << m(2, 1) << " \t" << m(2, 2) << std::endl;
+      << endl
+      << m(2, 0) << " \t" << m(2, 1) << " \t" << m(2, 2) << endl;
     return s;
 }
 

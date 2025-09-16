@@ -4,10 +4,11 @@
 #include "Mesh.h"
 #include "Sphere.h"
 #include "Square.h"
+#include <GL/glut.h>
 #include <string>
 #include <vector>
 
-#include <GL/glut.h>
+using namespace std;
 
 enum LightType {
     LightType_Spherical,
@@ -41,10 +42,10 @@ struct RaySceneIntersection {
 };
 
 class Scene {
-    std::vector<Mesh> meshes;
-    std::vector<Sphere> spheres;
-    std::vector<Square> squares;
-    std::vector<Light> lights;
+    vector<Mesh> meshes;
+    vector<Sphere> spheres;
+    vector<Square> squares;
+    vector<Light> lights;
 
 public:
     Scene() {

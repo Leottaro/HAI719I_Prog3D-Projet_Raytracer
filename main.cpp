@@ -14,6 +14,14 @@
 // purpose.
 // -------------------------------------------
 
+#include "src/Camera.h"
+#include "src/Material.h"
+#include "src/Scene.h"
+#include "src/Vec3.h"
+#include "src/imageLoader.h"
+#include "src/matrixUtilities.h"
+#include <GL/glut.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -21,19 +29,7 @@
 #include <string>
 #include <vector>
 
-#include "src/Camera.h"
-#include "src/Scene.h"
-#include "src/Vec3.h"
-#include <GL/glut.h>
-#include <algorithm>
-
-#include "src/matrixUtilities.h"
-
 using namespace std;
-
-#include "src/imageLoader.h"
-
-#include "src/Material.h"
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
@@ -50,10 +46,10 @@ static int lastX = 0, lastY = 0, lastZoom = 0;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
 
-std::vector<Scene> scenes;
+vector<Scene> scenes;
 unsigned int selected_scene;
 
-std::vector<std::pair<Vec3, Vec3>> rays;
+vector<pair<Vec3, Vec3>> rays;
 
 void printUsage() {
     cerr << endl
@@ -123,7 +119,7 @@ void draw() {
     scenes[selected_scene].draw();
 
     // draw rays : (for debug)
-    //  std::cout << rays.size() << std::endl;
+    //  cout << rays.size() << endl;
     glDisable(GL_LIGHTING);
     glDisable(GL_TEXTURE_2D);
     glLineWidth(6);
@@ -163,12 +159,12 @@ void idle() {
 
 void ray_trace_from_camera() {
     int w = glutGet(GLUT_WINDOW_WIDTH), h = glutGet(GLUT_WINDOW_HEIGHT);
-    std::cout << "Ray tracing a " << w << " x " << h << " image" << std::endl;
+    cout << "Ray tracing a " << w << " x " << h << " image" << endl;
     camera.apply();
     Vec3 pos, dir;
     //    unsigned int nsamples = 100;
     unsigned int nsamples = 50;
-    std::vector<Vec3> image(w * h, Vec3(0, 0, 0));
+    vector<Vec3> image(w * h, Vec3(0, 0, 0));
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             for (unsigned int s = 0; s < nsamples; ++s) {
@@ -182,20 +178,20 @@ void ray_trace_from_camera() {
             image[x + y * w] /= nsamples;
         }
     }
-    std::cout << "\tDone" << std::endl;
+    cout << "\tDone" << endl;
 
-    std::string filename = "./rendu.ppm";
+    string filename = "./rendu.ppm";
     ofstream f(filename.c_str(), ios::binary);
     if (f.fail()) {
         cout << "Could not open file: " << filename << endl;
         return;
     }
-    f << "P3" << std::endl
-      << w << " " << h << std::endl
-      << 255 << std::endl;
+    f << "P3" << endl
+      << w << " " << h << endl
+      << 255 << endl;
     for (int i = 0; i < w * h; i++)
-        f << (int)(255.f * std::min<float>(1.f, image[i][0])) << " " << (int)(255.f * std::min<float>(1.f, image[i][1])) << " " << (int)(255.f * std::min<float>(1.f, image[i][2])) << " ";
-    f << std::endl;
+        f << (int)(255.f * min<float>(1.f, image[i][0])) << " " << (int)(255.f * min<float>(1.f, image[i][1])) << " " << (int)(255.f * min<float>(1.f, image[i][2])) << " ";
+    f << endl;
     f.close();
 }
 
