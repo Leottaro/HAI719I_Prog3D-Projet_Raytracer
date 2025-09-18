@@ -172,7 +172,7 @@ void ray_trace_from_camera() {
                 float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / h;
                 // this is a random uv that belongs to the pixel xy.
                 screen_space_to_world_space_ray(u, v, pos, dir);
-                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir), camera.getNearPlane(), camera.getFarPlane());
+                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir), camera.getNearPlane(), camera.getFarPlane(), 10);
                 image[x + y * w] += color;
             }
             image[x + y * w] /= nsamples;

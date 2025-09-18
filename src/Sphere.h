@@ -151,9 +151,9 @@ public:
         intersection.intersection = O + intersection.t * D;
         intersection.normal = intersection.intersection - C;
         intersection.normal.normalize();
-        Vec3 spherical_normal = EuclideanCoordinatesToSpherical(intersection.normal);
-        intersection.theta = spherical_normal[0];
-        intersection.phi = spherical_normal[1];
+        Vec3 spherical_pos = EuclideanCoordinatesToSpherical(intersection.normal);
+        intersection.theta = spherical_pos[0];
+        intersection.phi = spherical_pos[1];
         float second_t = (-b + temp) / (2 * a);
         intersection.secondintersection = O + second_t * D;
 
