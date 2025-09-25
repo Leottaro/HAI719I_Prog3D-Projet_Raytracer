@@ -198,11 +198,27 @@ public:
 
     RayTriangleIntersection intersect(Ray const &ray) const {
         RayTriangleIntersection closestIntersection;
+        closestIntersection.intersectionExists = false;
         closestIntersection.t = FLT_MAX;
-        // Note :
+
         // Creer un objet Triangle pour chaque face
         // Vous constaterez des problemes de précision
-        // solution : ajouter un facteur d'échelle lors de la création du Triangle : float triangleScaling = 1.000001;
+        // solution : ajouter un facteur d'échelle lors de la création du Triangle :
+        float triangleScaling = 1 + FLT_EPSILON;
+        size_t n = triangles.size();
+
+        for (size_t i = 0; i < n; i++) {
+            MeshTriangle mesh_triangle = triangles[i];
+            MeshVertex V0 = vertices[mesh_triangle[0]];
+            MeshVertex V1 = vertices[mesh_triangle[1]];
+            MeshVertex V2 = vertices[mesh_triangle[2]];
+            Triangle triangle = Triangle(V0.position * triangleScaling, V1.position * triangleScaling, V2.position * triangleScaling);
+            RayTriangleIntersection intersection = triangle.getIntersection(ray);
+            if (intersection.intersectionExists && intersection.t < closestIntersection.t) {
+                closestIntersection.tIndex = i;
+                closestIntersection = intersection;
+            }
+        }
         return closestIntersection;
     }
 };

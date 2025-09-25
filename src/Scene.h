@@ -385,6 +385,35 @@ public:
             s.material.index_medium = 0.;
         }
     }
+
+    void setup_single_mesh(const string &filename) {
+        meshes.clear();
+        spheres.clear();
+        squares.clear();
+        lights.clear();
+
+        {
+            lights.resize(lights.size() + 1);
+            Light &light = lights[lights.size() - 1];
+            light.pos = Vec3(-5, 5, 5);
+            light.radius = 2.5f;
+            light.powerCorrection = 2.f;
+            light.type = LightType_Spherical;
+            light.material = Vec3(1, 1, 1);
+            light.isInCamSpace = false;
+        }
+        {
+            meshes.resize(meshes.size() + 1);
+            Mesh &mesh = meshes[meshes.size() - 1];
+            mesh.loadOFF(filename);
+            mesh.scale(Vec3(2., 2., 2.));
+            mesh.build_arrays();
+            mesh.material.type = Material_Diffuse_Blinn_Phong;
+            mesh.material.diffuse_material = Vec3(1., 0., 0.);
+            mesh.material.specular_material = Vec3(0.2, 0.2, 0.2);
+            mesh.material.shininess = 20;
+        }
+    }
 };
 
 #endif

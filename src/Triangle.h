@@ -3,6 +3,7 @@
 #include "Plane.h"
 #include "Ray.h"
 #include "Vec3.h"
+#include <cfloat>
 
 struct RayTriangleIntersection {
     bool intersectionExists;
@@ -36,44 +37,89 @@ public:
     void setC1(Vec3 const &c1) { m_c[1] = c1; } // remember to update the area and normal afterwards!
     void setC2(Vec3 const &c2) { m_c[2] = c2; } // remember to update the area and normal afterwards!
     Vec3 const &normal() const { return m_normal; }
+
     Vec3 projectOnSupportPlane(Vec3 const &p) const {
-        Vec3 result;
-        // TODO completer
-        return result;
+        return p - squareDistanceToSupportPlane(p) * m_normal;
     }
+
     float squareDistanceToSupportPlane(Vec3 const &p) const {
-        float result;
-        // TODO completer
-        return result;
+        return Vec3::dot(p - m_c[0], m_normal);
     }
     float distanceToSupportPlane(Vec3 const &p) const { return sqrt(squareDistanceToSupportPlane(p)); }
+
     bool isParallelTo(Line const &L) const {
-        bool result;
-        // TODO completer
-        return result;
+        float dot = Vec3::dot(L.direction(), this->m_normal);
+        return fabs(dot) <= FLT_EPSILON;
     }
-    Vec3 getIntersectionPointWithSupportPlane(Line const &L) const {
-        // you should check first that the line is not parallel to the plane!
-        Vec3 result;
-        // TODO completer
-        return result;
+
+    Vec3 getIntersectionPointWithSupportPlane(Line const &L, float &t) const {
+        if (isParallelTo(L)) {
+            return Vec3(0, 0, 0);
+        }
+        const Vec3 &O = L.origin();
+        const Vec3 &D = L.direction();
+        const Vec3 &N = this->m_normal;
+        t = -(Vec3::dot(N, O - this->m_c[0])) / Vec3::dot(N, D);
+        return O + t * D;
     }
+
     void computeBarycentricCoordinates(Vec3 const &p, float &u0, float &u1, float &u2) const {
-        // TODO Complete
+        Vec3 v0 = m_c[1] - m_c[0];
+        Vec3 v1 = m_c[2] - m_c[0];
+        Vec3 v2 = p - m_c[0];
+
+        float d00 = Vec3::dot(v0, v0);
+        float d01 = Vec3::dot(v0, v1);
+        float d11 = Vec3::dot(v1, v1);
+        float d20 = Vec3::dot(v2, v0);
+        float d21 = Vec3::dot(v2, v1);
+
+        float denom = d00 * d11 - d01 * d01;
+        if (fabs(denom) < FLT_EPSILON) {
+            u0 = u1 = u2 = -1.f;
+            return;
+        }
+
+        u1 = (d11 * d20 - d01 * d21) / denom;
+        u2 = (d00 * d21 - d01 * d20) / denom;
+        u0 = 1.0f - FLT_EPSILON - u1 - u2;
     }
 
     RayTriangleIntersection getIntersection(Ray const &ray) const {
-        RayTriangleIntersection result;
-        // 1) check that the ray is not parallel to the triangle:
+        RayTriangleIntersection intersection;
+        intersection.intersectionExists = false;
 
-        // 2) check that the triangle is "in front of" the ray:
+        // 1) check that the ray is not parallel to the triangle
+        if (this->isParallelTo(ray)) {
+            return intersection;
+        }
+
+        // calculate the intersection
+        float t;
+        Vec3 P = getIntersectionPointWithSupportPlane(ray, t);
+
+        // 2) check that the triangle is "in front of" the ray
+        if (Vec3::dot(P - ray.origin(), ray.direction()) < 0) {
+            return intersection;
+        }
 
         // 3) check that the intersection point is inside the triangle:
-        // CONVENTION: compute u,v such that p = w0*c0 + w1*c1 + w2*c2, check that 0 <= w0,w1,w2 <= 1
+        float w0, w1, w2;
+        computeBarycentricCoordinates(P, w0, w1, w2);
+        if (w0 < 0 || 1 < w0 || w1 < 0 || 1 < w1 || w2 < 0 || 1 < w2 || w0 + w1 + w2 < 0 || 1 < w0 + w1 + w2) {
+            return intersection;
+        }
 
-        // 4) Finally, if all conditions were met, then there is an intersection! :
-
-        return result;
+        // 4) Finally, if all conditions were met, then there is an intersection!
+        intersection.intersectionExists = true;
+        intersection.t = t;
+        intersection.w0 = w0;
+        intersection.w1 = w1;
+        intersection.w2 = w2;
+        // intersection.tIndex;
+        intersection.intersection = P;
+        intersection.normal = m_normal;
+        return intersection;
     }
 };
 #endif

@@ -129,7 +129,7 @@ public:
         const Vec3 &C = this->m_bottom_left;
         const Vec3 &N = this->m_normal;
 
-        // nous sommes derrière le triangle donc pas d'intersection
+        // nous sommes derrière le carré donc pas d'intersection
         // if (Vec3::dot(D, N) > 0) {
         //     return intersection;
         // }

@@ -11,15 +11,34 @@ void Mesh::loadOFF(const string &filename) {
     string offString;
     unsigned int sizeV, sizeT, tmp;
     in >> offString >> sizeV >> sizeT >> tmp;
+    // cout << "loading mesh at \"" << filename << "\"" << endl
+    //      << "siseV: " << sizeV << endl
+    //      << "sizeT: " << sizeT << endl;
     vertices.resize(sizeV);
     triangles.resize(sizeT);
-    for (unsigned int i = 0; i < sizeV; i++)
+    for (unsigned int i = 0; i < sizeV; i++) {
         in >> vertices[i].position;
+        // cout << "position: " << vertices[i].position;
+        if (!(in.peek() == '\n' || in.peek() == '\r' || in.eof())) {
+            in >> vertices[i].normal;
+            // cout << ", normal: " << vertices[i].normal;
+        }
+        // cout << endl;
+    }
     int s;
     for (unsigned int i = 0; i < sizeT; i++) {
         in >> s;
-        for (unsigned int j = 0; j < 3; j++)
+        // cout << "Triangle: ";
+        for (unsigned int j = 0; j < 3; j++) {
             in >> triangles[i].v[j];
+            // cout << triangles[i].v[j] << ", ";
+        }
+        if (!(in.peek() == '\n' || in.peek() == '\r' || in.eof())) {
+            string restOfLine;
+            getline(in, restOfLine);
+            // cout << "and some things";
+        }
+        // cout << endl;
     }
     in.close();
 }
