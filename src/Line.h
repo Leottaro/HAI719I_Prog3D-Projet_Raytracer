@@ -23,14 +23,12 @@ public:
     Vec3 &direction() { return m_direction; }
     Vec3 const &direction() const { return m_direction; }
     Vec3 project(Vec3 const &p) const {
-        Vec3 result;
-        // TODO completer
-        return result;
+        Vec3 OP = m_direction * Vec3::dot(m_direction, p - m_origin);
+        return m_origin + OP;
     }
     float squareDistance(Vec3 const &p) const {
-        float result = 0;
-        // TODO completer
-        return result;
+        Vec3 proj = project(p);
+        return (p - proj).squareLength();
     }
     float distance(Vec3 const &p) const {
         return sqrt(squareDistance(p));

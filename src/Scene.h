@@ -114,7 +114,7 @@ public:
         }
 
         Material material;
-        Vec3 P, N, V;
+        Vec3 P, N, V = -1 * ray.direction();
         switch (raySceneIntersection.typeOfIntersectedObject) {
         case 0: // Sphere
             material = spheres[raySceneIntersection.objectIndex].material;
@@ -132,60 +132,83 @@ public:
             N = raySceneIntersection.rayMeshIntersection.normal;
             break;
         }
-
-        V = -1 * ray.direction();
         V.normalize();
         N.normalize();
 
-        // bidouillage 1
-        Vec3 ka = material.ambient_material;
-        Vec3 kd = material.diffuse_material;
-        Vec3 ks = material.specular_material;
-        float alpha = material.shininess;
+        switch (material.type) {
+        case Material_Diffuse_Blinn_Phong: { // bidouillage 1
+            Vec3 ka = material.ambient_material;
+            Vec3 kd = material.diffuse_material;
+            Vec3 ks = material.specular_material;
+            float alpha = material.shininess;
 
-        float one_over_shadow_sample = 1. / (float)shadow_samples;
+            float one_over_shadow_sample = 1. / (float)shadow_samples;
 
-        for (Light light : lights) {
-            // bidouillage 2
-            float ia = 1.;
-            float id = 1.;
-            float is = 1.;
+            for (Light light : lights) {
+                // bidouillage 2
+                float ia = 1.;
+                float id = 1.;
+                float is = 1.;
 
-            Vec3 L = light.pos - P;
-            float L_norm = L.norm();
-            L /= L_norm;
+                Vec3 L = light.pos - P;
+                float L_norm = L.norm();
+                L /= L_norm;
 
-            float shadow_factor = 1.;
-            Vec3 arbitrary = L[0] <= L[1] && L[0] <= L[2] ? Vec3(1., 0., 0.) : (L[1] <= L[2] ? Vec3(0., 1., 0.) : Vec3(0., 0., 1.));
-            Vec3 u = Vec3::cross(arbitrary, L);
-            Vec3 v = Vec3::cross(u, L);
-            for (int i = 0; i < shadow_samples; i++) {
-                float radius = light.radius * sqrt(((float)rand()) / RAND_MAX);
-                float angle = 2 * M_PI * ((float)rand()) / RAND_MAX;
-                Vec3 sampled_pos = light.pos + radius * cos(angle) * u + radius * sin(angle) * v;
-                Ray shadow_ray = Ray(P, sampled_pos - P);
-                RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, FLT_EPSILON, L_norm - FLT_EPSILON);
-                if (shadow_intersection.intersectionExists && (shadow_intersection.typeOfIntersectedObject != raySceneIntersection.typeOfIntersectedObject || shadow_intersection.objectIndex != raySceneIntersection.objectIndex)) {
-                    shadow_factor -= one_over_shadow_sample;
+                float shadow_factor = 1.;
+                Vec3 arbitrary = Vec3();
+                arbitrary[L.getMaxAbsoluteComponent()] = 1.;
+                Vec3 u = Vec3::cross(arbitrary, L);
+                Vec3 v = Vec3::cross(u, L);
+                for (int i = 0; i < shadow_samples; i++) {
+                    float radius = light.radius * sqrt(((float)rand()) / RAND_MAX);
+                    float angle = 2 * M_PI * ((float)rand()) / RAND_MAX;
+                    Vec3 sampled_pos = light.pos + radius * cos(angle) * u + radius * sin(angle) * v;
+                    Ray shadow_ray = Ray(P, sampled_pos - P);
+                    RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, FLT_EPSILON, L_norm - FLT_EPSILON);
+                    if (shadow_intersection.intersectionExists && (shadow_intersection.typeOfIntersectedObject != raySceneIntersection.typeOfIntersectedObject || shadow_intersection.objectIndex != raySceneIntersection.objectIndex)) {
+                        shadow_factor -= one_over_shadow_sample;
+                    }
                 }
+
+                float LdotN = Vec3::dot(L, N);
+                Vec3 R = 2. * N * LdotN - L;
+                R.normalize();
+
+                float RdotV = Vec3::dot(R, V);
+                Vec3 Ia = ka * ia;
+                Vec3 Id = LdotN > 0 ? kd * LdotN * id : Vec3();
+                Vec3 Is = RdotV > 0 ? ks * pow(RdotV, alpha) * is : Vec3();
+                I += shadow_factor * (Ia + Id + Is);
             }
+            break;
+        }
 
-            float NdotL = Vec3::dot(N, L);
-            Vec3 R = 2. * NdotL * N - L;
-            R.normalize();
+        case Material_Mirror: {
+            if (NRemainingBounces == 0) {
+                I = material.diffuse_material;
+                break;
+            }
+            Vec3 reflection_dir = 2. * N * Vec3::dot(V, N) - V;
+            reflection_dir.normalize();
+            Ray reflection_ray = Ray(P, reflection_dir);
+            I = rayTraceRecursive(reflection_ray, FLT_EPSILON, max_t, shadow_samples, NRemainingBounces - 1);
+            break;
+        }
 
-            float RdotV = Vec3::dot(R, V);
-            Vec3 Ia = ka * ia;
-            Vec3 Id = NdotL > 0 ? kd * NdotL * id : Vec3();
-            Vec3 Is = RdotV > 0 ? ks * pow(RdotV, alpha) * is : Vec3();
-            I += shadow_factor * (Ia + Id + Is);
+        case Material_Glass: {
+            /* code */
+            break;
+        }
+
+        default:
+            break;
         }
 
         return I;
     }
 
     Vec3 rayTrace(Ray const &rayStart, float min_t = FLT_EPSILON, float max_t = FLT_MAX, int shadow_samples = 10) {
-        Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, shadow_samples, 0);
+        Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, shadow_samples, 5);
         return color;
     }
 
@@ -339,18 +362,18 @@ public:
             s.material.shininess = 16;
         }
 
-        // { // Front Wall
-        //     squares.resize(squares.size() + 1);
-        //     Square &s = squares[squares.size() - 1];
-        //     s.setQuad(Vec3(-1., -1., 0.), Vec3(1., 0, 0.), Vec3(0., 1, 0.), 2., 2.);
-        //     s.translate(Vec3(0., 0., -2.));
-        //     s.scale(Vec3(2., 2., 1.));
-        //     s.rotate_y(180);
-        //     s.build_arrays();
-        //     s.material.diffuse_material = Vec3(1.0, 1.0, 1.0);
-        //     s.material.specular_material = Vec3(1.0, 1.0, 1.0);
-        //     s.material.shininess = 16;
-        // }
+        { // Front Wall
+            squares.resize(squares.size() + 1);
+            Square &s = squares[squares.size() - 1];
+            s.setQuad(Vec3(-1., -1., 0.), Vec3(1., 0, 0.), Vec3(0., 1, 0.), 2., 2.);
+            s.translate(Vec3(0., 0., -2.));
+            s.scale(Vec3(2., 2., 1.));
+            s.rotate_y(180);
+            s.build_arrays();
+            s.material.diffuse_material = Vec3(1.0, 1.0, 1.0);
+            s.material.specular_material = Vec3(1.0, 1.0, 1.0);
+            s.material.shininess = 16;
+        }
 
         { // GLASS Sphere
 

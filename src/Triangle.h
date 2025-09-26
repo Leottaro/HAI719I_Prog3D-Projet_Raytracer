@@ -41,28 +41,22 @@ public:
     Vec3 const &normal() const { return m_normal; }
 
     Vec3 projectOnSupportPlane(Vec3 const &p) const {
-        return p - squareDistanceToSupportPlane(p) * m_normal;
+        return Plane(m_c[0], m_normal).project(p);
     }
 
     float squareDistanceToSupportPlane(Vec3 const &p) const {
-        return Vec3::dot(p - m_c[0], m_normal);
+        return Plane(m_c[0], m_normal).squareDistance(p);
     }
-    float distanceToSupportPlane(Vec3 const &p) const { return sqrt(squareDistanceToSupportPlane(p)); }
+    float distanceToSupportPlane(Vec3 const &p) const {
+        return Plane(m_c[0], m_normal).distance(p);
+    }
 
     bool isParallelTo(Line const &L) const {
-        float dot = Vec3::dot(L.direction(), this->m_normal);
-        return fabs(dot) <= FLT_EPSILON;
+        return Plane(m_c[0], m_normal).isParallelTo(L);
     }
 
     Vec3 getIntersectionPointWithSupportPlane(Line const &L, float &t) const {
-        if (isParallelTo(L)) {
-            return Vec3(0, 0, 0);
-        }
-        const Vec3 &O = L.origin();
-        const Vec3 &D = L.direction();
-        const Vec3 &N = this->m_normal;
-        t = -(Vec3::dot(N, O - this->m_c[0])) / Vec3::dot(N, D);
-        return O + t * D;
+        return Plane(m_c[0], m_normal).getIntersectionPoint(L, t);
     }
 
     void computeBarycentricCoordinates(Vec3 const &p, float &u0, float &u1, float &u2) const {
