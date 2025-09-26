@@ -11,6 +11,7 @@ struct RaySquareIntersection {
     float u, v;
     Vec3 intersection;
     Vec3 normal;
+    RaySquareIntersection() : intersectionExists(false), t(FLT_MAX) {}
 };
 
 class Square : public Mesh {
@@ -110,8 +111,7 @@ public:
     }
 
     RaySquareIntersection intersect(const Ray &ray) const {
-        RaySquareIntersection intersection;
-        intersection.intersectionExists = false;
+        RaySquareIntersection intersection = RaySquareIntersection();
 
         /*
         equation paramétrique du rayon : R(t) = O + tD      (avec O l'origine et D la direction)

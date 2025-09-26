@@ -172,7 +172,7 @@ void ray_trace_from_camera() {
                 float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / h;
                 // this is a random uv that belongs to the pixel xy.
                 screen_space_to_world_space_ray(u, v, pos, dir);
-                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir), camera.getNearPlane(), camera.getFarPlane(), 0);
+                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir), camera.getNearPlane(), camera.getFarPlane(), 10);
                 image[x + y * w] += color;
             }
             image[x + y * w] /= nsamples;
@@ -309,7 +309,7 @@ int main(int argc, char **argv) {
     scenes[0].setup_single_sphere();
     scenes[1].setup_single_square();
     scenes[2].setup_cornell_box();
-    scenes[3].setup_single_mesh("data/dragknob.off");
+    scenes[3].setup_single_mesh("data/nefertiti.off");
 
     glutMainLoop();
     return EXIT_SUCCESS;

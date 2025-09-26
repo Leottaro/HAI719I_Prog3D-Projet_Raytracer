@@ -9,9 +9,11 @@ struct RayTriangleIntersection {
     bool intersectionExists;
     float t;
     float w0, w1, w2;
+    float u, v;
     unsigned int tIndex;
     Vec3 intersection;
     Vec3 normal;
+    RayTriangleIntersection() : intersectionExists(false), t(FLT_MAX) {}
 };
 
 class Triangle {
@@ -116,9 +118,11 @@ public:
         intersection.w0 = w0;
         intersection.w1 = w1;
         intersection.w2 = w2;
+        // intersection.u;
+        // intersection.v;
         // intersection.tIndex;
         intersection.intersection = P;
-        intersection.normal = m_normal;
+        // intersection.normal;
         return intersection;
     }
 };

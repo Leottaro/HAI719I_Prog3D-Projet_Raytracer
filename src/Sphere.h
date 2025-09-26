@@ -12,6 +12,7 @@ struct RaySphereIntersection {
     Vec3 intersection;
     Vec3 secondintersection;
     Vec3 normal;
+    RaySphereIntersection() : intersectionExists(false), t(FLT_MAX) {}
 };
 
 static Vec3 SphericalCoordinatesToEuclidean(Vec3 ThetaPhiR) {
@@ -118,8 +119,7 @@ public:
     }
 
     RaySphereIntersection intersect(const Ray &ray) const {
-        RaySphereIntersection intersection;
-        intersection.intersectionExists = false;
+        RaySphereIntersection intersection = RaySphereIntersection();
 
         /*
         equation paramétrique du rayon : R(t) = O + tD    (avec O l'origine et D la direction)

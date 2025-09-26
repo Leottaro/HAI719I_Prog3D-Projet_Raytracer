@@ -38,7 +38,7 @@ struct RaySceneIntersection {
     RayTriangleIntersection rayMeshIntersection;
     RaySphereIntersection raySphereIntersection;
     RaySquareIntersection raySquareIntersection;
-    RaySceneIntersection() : intersectionExists(false), t(FLT_MAX) {}
+    RaySceneIntersection(float max_t = FLT_MAX) : intersectionExists(false), t(max_t) {}
 };
 
 class Scene {
@@ -68,11 +68,7 @@ public:
     }
 
     RaySceneIntersection computeIntersection(Ray const &ray, float min_t, float max_t) {
-        RaySceneIntersection result;
-        result.intersectionExists = false;
-        result.objectIndex = UINT32_MAX;
-        result.t = max_t;
-        result.typeOfIntersectedObject = UINT32_MAX;
+        RaySceneIntersection result = RaySceneIntersection(max_t);
 
         for (unsigned int i = 0; i < spheres.size(); i++) {
             RaySphereIntersection intersection = spheres[i].intersect(ray);
