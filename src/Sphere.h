@@ -144,18 +144,25 @@ public:
         if (delta < 0) {
             return intersection;
         }
-        float temp = sqrt(delta);
+
+        float sqrt_delta = sqrt(delta);
+        float t = (-b - sqrt_delta) / (2 * a);
+        float t2 = (-b + sqrt_delta) / (2 * a);
+        bool is_outside = t >= 0;
+        // if (!is_outside) {
+        //     return intersection;
+        // }
 
         intersection.intersectionExists = true;
-        intersection.t = (-b - temp) / (2 * a);
-        intersection.intersection = O + intersection.t * D;
-        intersection.normal = intersection.intersection - C;
+        intersection.t = is_outside ? t : t2;
+        intersection.intersection = is_outside ? O + t * D : O + t2 * D;
+        intersection.normal = is_outside ? intersection.intersection - C : C - intersection.intersection;
+        intersection.secondintersection = is_outside ? O + t2 * D : O + t * D;
+
         intersection.normal.normalize();
         Vec3 spherical_pos = EuclideanCoordinatesToSpherical(intersection.normal);
         intersection.theta = spherical_pos[0];
         intersection.phi = spherical_pos[1];
-        float second_t = (-b + temp) / (2 * a);
-        intersection.secondintersection = O + second_t * D;
 
         return intersection;
     }

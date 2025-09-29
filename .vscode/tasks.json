@@ -2,9 +2,9 @@
 	"version": "2.0.0",
     "tasks": [
         {
-            "label": "build-if-needed",
+            "label": "clean-and-build",
             "type": "shell",
-            "command": "[ -f main ] || make",
+            "command": "make clean && make",
             "options": {
                 "cwd": "${workspaceFolder}"
             },

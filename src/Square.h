@@ -130,7 +130,7 @@ public:
         const Vec3 &N = this->m_normal;
 
         // nous sommes derrière le carré donc pas d'intersection
-        if (Vec3::dot(D, N) > 0) {
+        if (material.type != Material_Glass && Vec3::dot(D, N) > 0) {
             return intersection;
         }
 
