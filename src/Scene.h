@@ -126,6 +126,58 @@ public:
         Material material = raySceneIntersection.material;
         Vec3 P = raySceneIntersection.intersection;
 
+        // https://en.wikipedia.org/wiki/Phong_reflection_model#Concepts AND
+        // https://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_reflection_model
+        const Vec3 V = -1 * ray.direction();
+        const Vec3 &N = raySceneIntersection.normal;
+
+        Vec3 Ia = Vec3(0., 0., 0.);
+        Vec3 Id = Vec3(0., 0., 0.);
+        Vec3 Is = Vec3(0., 0., 0.);
+
+        Vec3 ka = material.ambient_material;
+        Vec3 kd = material.diffuse_material;
+        Vec3 ks = material.specular_material;
+        float alpha = material.shininess;
+
+        float one_over_shadow_sample = 1. / (float)shadow_samples;
+        for (Light light : lights) {
+            // bidouillage 2
+            float ia = 1.;
+            float id = 1.;
+            float is = 1.;
+
+            Vec3 L = light.pos - P;
+            float L_norm = L.norm();
+            L /= L_norm;
+
+            float shadow_factor = 1.;
+            Vec3 arbitrary = Vec3(0., 0., 0.);
+            arbitrary[L.getMaxAbsoluteComponent()] = 1.;
+            Vec3 u = Vec3::cross(arbitrary, L);
+            Vec3 v = Vec3::cross(u, L);
+            for (int i = 0; i < shadow_samples; i++) {
+                float radius = light.radius * sqrt(((float)rand()) / RAND_MAX);
+                float angle = 2 * M_PI * ((float)rand()) / RAND_MAX;
+                Vec3 sampled_pos = light.pos + radius * cos(angle) * u + radius * sin(angle) * v;
+                Ray shadow_ray = Ray(P, sampled_pos - P, ray.index_mediums, ray.object_types, ray.object_indices);
+                RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, 0.00001, L_norm - 0.00001);
+                if (shadow_intersection.intersectionExists) {
+                    shadow_factor -= one_over_shadow_sample;
+                }
+            }
+
+            float LdotN = Vec3::dot(L, N);
+            Vec3 R = 2. * N * LdotN - L;
+            R.normalize();
+
+            float RdotV = Vec3::dot(R, V);
+            Ia += ka * ia;
+            Id += LdotN > 0.00001 ? shadow_factor * kd * LdotN * id : Vec3();
+            Is += RdotV > 0.00001 ? shadow_factor * ks * pow(RdotV, alpha) * is : Vec3();
+        }
+        Vec3 I = Ia + Id + Is;
+
         if (material.type == Material_Glass && NRemainingBounces > 0) {
             float nL, nT;
             if (ray.object_types[ray.object_types.size() - 1] == raySceneIntersection.typeOfIntersectedObject && ray.object_indices[ray.object_indices.size() - 1] == raySceneIntersection.objectIndex) {
@@ -150,17 +202,16 @@ public:
             Vec3 LperpendicularN = L - LparallelN;
             float sin_thetaL = LperpendicularN.norm();
 
-            if (sin_thetaL <= nT / nL) { // TODO: https://en.wikipedia.org/wiki/Fresnel_equations
+            // TODO: https://en.wikipedia.org/wiki/Fresnel_equations
+            if (sin_thetaL <= nT / nL) {
                 float r = nL / nT;
                 float c = Vec3::dot(N, L);
                 Vec3 T = N * (-r * c - sqrt(1 - r * r * (1 - c * c))) + L * r; // v_refract
                 Ray refraction_ray = Ray(P, T, ray.index_mediums, ray.object_types, ray.object_indices);
-                return rayTraceRecursive(refraction_ray, 0.00001, max_t, shadow_samples, NRemainingBounces - 1);
+                Vec3 refraction_I = rayTraceRecursive(refraction_ray, 0.00001, max_t, shadow_samples, NRemainingBounces - 1);
+                I = refraction_I;
             } else {
-                Vec3 v_reflect = L - 2. * N * Vec3::dot(L, N);
-                v_reflect.normalize();
-                Ray reflection_ray = Ray(P, v_reflect, ray.index_mediums, ray.object_types, ray.object_indices);
-                return rayTraceRecursive(reflection_ray, 0.00001, max_t, shadow_samples, NRemainingBounces - 1);
+                material.type = Material_Mirror;
             }
         }
 
@@ -172,59 +223,13 @@ public:
             Vec3 v_reflect = di - 2. * dn * Vec3::dot(di, dn);
             v_reflect.normalize();
             Ray reflection_ray = Ray(P, v_reflect, ray.index_mediums, ray.object_types, ray.object_indices);
-            return rayTraceRecursive(reflection_ray, 0.00001, max_t, shadow_samples, NRemainingBounces - 1);
+            Vec3 reflection_I = rayTraceRecursive(reflection_ray, 0.00001, max_t, shadow_samples, NRemainingBounces - 1);
+            I = reflection_I;
         }
 
-        // https://en.wikipedia.org/wiki/Phong_reflection_model#Concepts AND
-        // https://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_reflection_model
-
-        const Vec3 V = -1 * ray.direction();
-        const Vec3 &N = raySceneIntersection.normal;
-
-        Vec3 I = Vec3(0., 0., 0.);
-        Vec3 ka = material.ambient_material;
-        Vec3 kd = material.diffuse_material;
-        Vec3 ks = material.specular_material;
-        float alpha = material.shininess;
-
-        float one_over_shadow_sample = 1. / (float)shadow_samples;
-
-        for (Light light : lights) {
-            // bidouillage 2
-            float ia = 1.;
-            float id = 1.;
-            float is = 1.;
-
-            Vec3 L = light.pos - P;
-            float L_norm = L.norm();
-            L /= L_norm;
-
-            float shadow_factor = 1.;
-            Vec3 arbitrary = Vec3();
-            arbitrary[L.getMaxAbsoluteComponent()] = 1.;
-            Vec3 u = Vec3::cross(arbitrary, L);
-            Vec3 v = Vec3::cross(u, L);
-            for (int i = 0; i < shadow_samples; i++) {
-                float radius = light.radius * sqrt(((float)rand()) / RAND_MAX);
-                float angle = 2 * M_PI * ((float)rand()) / RAND_MAX;
-                Vec3 sampled_pos = light.pos + radius * cos(angle) * u + radius * sin(angle) * v;
-                Ray shadow_ray = Ray(P, sampled_pos - P, ray.index_mediums, ray.object_types, ray.object_indices);
-                RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, 0.00001, L_norm - 0.00001);
-                if (shadow_intersection.intersectionExists && (shadow_intersection.typeOfIntersectedObject != raySceneIntersection.typeOfIntersectedObject || shadow_intersection.objectIndex != raySceneIntersection.objectIndex)) {
-                    shadow_factor -= one_over_shadow_sample;
-                }
-            }
-
-            float LdotN = Vec3::dot(L, N);
-            Vec3 R = 2. * N * LdotN - L;
-            R.normalize();
-
-            float RdotV = Vec3::dot(R, V);
-            Vec3 Ia = ka * ia;
-            Vec3 Id = LdotN > 0.00001 ? kd * LdotN * id : Vec3();
-            Vec3 Is = RdotV > 0.00001 ? ks * pow(RdotV, alpha) * is : Vec3();
-            I += shadow_factor * (Ia + Id + Is);
-        }
+        I[0] = min(max(0.f, I[0]), 1.f);
+        I[1] = min(max(0.f, I[1]), 1.f);
+        I[2] = min(max(0.f, I[2]), 1.f);
 
         return I;
     }

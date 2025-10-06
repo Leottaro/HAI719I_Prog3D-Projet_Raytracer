@@ -32,8 +32,8 @@
 
 using namespace std;
 
-const unsigned int NSAMPLES = 20;
-const unsigned int SHADOW_RAYS = 10;
+const unsigned int NSAMPLES = 50;
+const unsigned int SHADOW_RAYS = 50;
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
