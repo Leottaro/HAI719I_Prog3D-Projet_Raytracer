@@ -71,14 +71,14 @@ public:
         float d21 = Vec3::dot(v2, v1);
 
         float denom = d00 * d11 - d01 * d01;
-        if (fabs(denom) < FLT_EPSILON) {
+        if (fabs(denom) < 0.00001) {
             u0 = u1 = u2 = -1.f;
             return;
         }
 
         u1 = (d11 * d20 - d01 * d21) / denom;
         u2 = (d00 * d21 - d01 * d20) / denom;
-        u0 = 1.0f - FLT_EPSILON - u1 - u2;
+        u0 = 1.0f - 0.00001 - u1 - u2;
     }
 
     RayTriangleIntersection getIntersection(Ray const &ray) const {

@@ -23,12 +23,12 @@ public:
 
     Square() : Mesh() {}
     Square(Vec3 const &bottomLeft, Vec3 const &rightVector, Vec3 const &upVector, float width = 1., float height = 1.,
-           float uMin = 0.f, float uMax = 1.f, float vMin = 0.f, float vMax = 1.f) : Mesh() {
+           float uMin = 0.00001, float uMax = 1.f, float vMin = 0.00001, float vMax = 1.f) : Mesh() {
         setQuad(bottomLeft, rightVector, upVector, width, height, uMin, uMax, vMin, vMax);
     }
 
     void setQuad(Vec3 const &bottomLeft, Vec3 const &rightVector, Vec3 const &upVector, float width = 1., float height = 1.,
-                 float uMin = 0.f, float uMax = 1.f, float vMin = 0.f, float vMax = 1.f) {
+                 float uMin = 0.00001, float uMax = 1.f, float vMin = 0.00001, float vMax = 1.f) {
         m_right_vector = rightVector;
         m_up_vector = upVector;
         m_normal = Vec3::cross(rightVector, upVector);
@@ -141,7 +141,7 @@ public:
         float u = Vec3::dot(PC, this->m_right_vector) / this->m_right_vector.squareNorm();
         float v = Vec3::dot(PC, this->m_up_vector) / this->m_up_vector.squareNorm();
 
-        if (0 <= u && u <= 1 && 0 <= v && v <= 1) {
+        if (0.00001 <= u && u <= 1 && 0.00001 <= v && v <= 1) {
             intersection.intersectionExists = true;
             intersection.t = t;
             intersection.u = u;

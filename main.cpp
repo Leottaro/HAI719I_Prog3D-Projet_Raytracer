@@ -25,11 +25,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
 
 using namespace std;
+
+const unsigned int NSAMPLES = 20;
+const unsigned int SHADOW_RAYS = 10;
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
@@ -162,23 +166,26 @@ void ray_trace_from_camera() {
     cout << "Ray tracing a " << w << " x " << h << " image" << endl;
     camera.apply();
     Vec3 pos, dir;
-    //    unsigned int nsamples = 100;
-    unsigned int nsamples = 50;
     vector<Vec3> image(w * h, Vec3(0, 0, 0));
+    int n_pixels = h * w;
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            for (unsigned int s = 0; s < nsamples; ++s) {
+            int pixel_i = y * w + x;
+            float percent = 100.0f * (float)pixel_i / n_pixels;
+            cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << percent << "% completed)" << flush;
+            for (unsigned int s = 0; s < NSAMPLES; ++s) {
                 float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / w;
                 float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / h;
                 // this is a random uv that belongs to the pixel xy.
                 screen_space_to_world_space_ray(u, v, pos, dir);
-                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir, 1.), camera.getNearPlane(), camera.getFarPlane(), 10);
+                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir, 1.), camera.getNearPlane(), camera.getFarPlane(), SHADOW_RAYS);
                 image[x + y * w] += color;
             }
-            image[x + y * w] /= nsamples;
+            image[x + y * w] /= NSAMPLES;
         }
     }
-    cout << "\tDone" << endl;
+    cout << endl
+         << "\tDone" << endl;
 
     string filename = "./rendu.ppm";
     ofstream f(filename.c_str(), ios::binary);
@@ -305,11 +312,12 @@ int main(int argc, char **argv) {
 
     camera.move(0., 0., -3.1);
     selected_scene = 0;
-    scenes.resize(4);
+    scenes.resize(5);
     scenes[0].setup_single_sphere();
     scenes[1].setup_single_square();
     scenes[2].setup_cornell_box();
     scenes[3].setup_single_mesh("data/unit_sphere_n.off");
+    scenes[4].setup_refraction_test();
 
     glutMainLoop();
     return EXIT_SUCCESS;

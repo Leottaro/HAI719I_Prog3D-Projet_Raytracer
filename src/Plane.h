@@ -28,7 +28,7 @@ public:
     float distance(Vec3 const &p) const { return sqrt(squareDistance(p)); }
     bool isParallelTo(Line const &L) const {
         float dot = Vec3::dot(L.direction(), m_normal);
-        return fabs(dot) <= FLT_EPSILON;
+        return fabs(dot) <= 0.00001;
     }
     Vec3 getIntersectionPoint(Line const &L, float &t) const {
         if (isParallelTo(L)) {
