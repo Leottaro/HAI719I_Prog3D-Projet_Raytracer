@@ -51,8 +51,7 @@ class Scene {
     vector<Light> lights;
 
 public:
-    Scene() {
-    }
+    Scene() {}
 
     void draw() {
         // iterer sur l'ensemble des objets, et faire leur rendu :
@@ -102,7 +101,8 @@ public:
         }
 
         for (unsigned int i = 0; i < meshes.size(); i++) {
-            RayTriangleIntersection intersection = meshes[i].intersect(ray);
+            extern const bool USE_KDTREE;
+            RayTriangleIntersection intersection = USE_KDTREE ? meshes[i].intersect_kdtree(ray) : meshes[i].intersect(ray);
             if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
                 result.intersectionExists = true;
                 result.t = intersection.t;

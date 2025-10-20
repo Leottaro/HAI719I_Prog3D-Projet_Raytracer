@@ -1,12 +1,13 @@
 #ifndef MESH_H
 #define MESH_H
 
+#include "KdTree.h"
 #include "Material.h"
 #include "Ray.h"
 #include "Triangle.h"
 #include "Vec3.h"
 #include <GL/glut.h>
-#include <cfloat>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -94,6 +95,29 @@ protected:
             triangles_array[3 * t + 2] = triangles[t].v[2];
         }
     }
+    void build_kd_tree() {
+        vector<KdTriangle> passed_triangles(this->triangles.size());
+        Vec3 min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+        Vec3 max = Vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+        for (size_t i = 0; i < this->triangles.size(); i++) {
+            KdTriangle kd_triangle = KdTriangle(this->vertices[this->triangles[i][0]].position,
+                                                this->vertices[this->triangles[i][1]].position,
+                                                this->vertices[this->triangles[i][2]].position,
+                                                i);
+            min = Vec3(
+                std::min({min[0], kd_triangle.v0[0], kd_triangle.v1[0], kd_triangle.v2[0]}),
+                std::min({min[1], kd_triangle.v0[1], kd_triangle.v1[1], kd_triangle.v2[1]}),
+                std::min({min[2], kd_triangle.v0[2], kd_triangle.v1[2], kd_triangle.v2[2]}));
+            max = Vec3(
+                std::max({max[0], kd_triangle.v0[0], kd_triangle.v1[0], kd_triangle.v2[0]}),
+                std::max({max[1], kd_triangle.v0[1], kd_triangle.v1[1], kd_triangle.v2[1]}),
+                std::max({max[2], kd_triangle.v0[2], kd_triangle.v1[2], kd_triangle.v2[2]}));
+            passed_triangles[i] = kd_triangle;
+        }
+
+        this->kdtree = new KdTree(passed_triangles, min, max, (max - min).getMaxAbsoluteComponent(), 10);
+    }
 
 public:
     vector<MeshVertex> vertices;
@@ -105,6 +129,11 @@ public:
     vector<unsigned int> triangles_array;
 
     Material material;
+    KdTree *kdtree;
+
+    ~Mesh() {
+        delete kdtree;
+    }
 
     void loadOFF(const string &filename);
     void recomputeNormals();
@@ -117,6 +146,7 @@ public:
         build_normals_array();
         build_UVs_array();
         build_triangles_array();
+        build_kd_tree();
     }
 
     void translate(Vec3 const &translation) {
@@ -202,7 +232,7 @@ public:
         // Creer un objet Triangle pour chaque face
         // Vous constaterez des problemes de précision
         // solution : ajouter un facteur d'échelle lors de la création du Triangle :
-        float triangleScaling = 1.000001;
+        // float triangleScaling = 1.000001;
         size_t n = triangles.size();
 
         for (size_t i = 0; i < n; i++) {
@@ -222,6 +252,28 @@ public:
             }
         }
         return closestIntersection;
+    }
+
+    RayTriangleIntersection intersect_kdtree(Ray const &ray) const {
+        KdTriangle kd_triangle;
+        bool intersect = kdtree->intersect(ray, kd_triangle);
+        if (!intersect) {
+            return RayTriangleIntersection();
+        }
+
+        Triangle triangle = Triangle(kd_triangle.v0, kd_triangle.v1, kd_triangle.v2);
+        MeshTriangle mesh_triangle = this->triangles[kd_triangle.triangle_index];
+        MeshVertex mesh_v0 = this->vertices[mesh_triangle[0]];
+        MeshVertex mesh_v1 = this->vertices[mesh_triangle[1]];
+        MeshVertex mesh_v2 = this->vertices[mesh_triangle[2]];
+
+        RayTriangleIntersection intersection = triangle.getIntersection(ray);
+        intersection.tIndex = kd_triangle.triangle_index;
+        intersection.normal = mesh_v0.normal * intersection.w0 + mesh_v1.normal * intersection.w1 + mesh_v2.normal * intersection.w2;
+        intersection.normal.normalize();
+        intersection.u = mesh_v0.u * intersection.w0 + mesh_v1.u * intersection.w1 + mesh_v2.u * intersection.w2;
+        intersection.v = mesh_v0.v * intersection.w0 + mesh_v1.v * intersection.w1 + mesh_v2.v * intersection.w2;
+        return intersection;
     }
 };
 

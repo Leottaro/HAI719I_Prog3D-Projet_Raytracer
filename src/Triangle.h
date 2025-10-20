@@ -18,10 +18,12 @@ struct RayTriangleIntersection {
 
 class Triangle {
 private:
-    Vec3 m_c[3], m_normal;
+    Vec3 m_normal;
     float area;
 
 public:
+    Vec3 m_c[3];
+
     Triangle() {}
     Triangle(Vec3 const &c0, Vec3 const &c1, Vec3 const &c2) {
         m_c[0] = c0;
@@ -35,10 +37,11 @@ public:
         m_normal = nNotNormalized / norm;
         area = norm / 2.f;
     }
-    void setC0(Vec3 const &c0) { m_c[0] = c0; } // remember to update the area and normal afterwards!
-    void setC1(Vec3 const &c1) { m_c[1] = c1; } // remember to update the area and normal afterwards!
-    void setC2(Vec3 const &c2) { m_c[2] = c2; } // remember to update the area and normal afterwards!
     Vec3 const &normal() const { return m_normal; }
+
+    Vec3 getCentroid() const {
+        return (m_c[0] + m_c[1] + m_c[2]) / 3.;
+    }
 
     Vec3 projectOnSupportPlane(Vec3 const &p) const {
         return Plane(m_c[0], m_normal).project(p);

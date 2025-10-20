@@ -1,5 +1,6 @@
 HEADERS += \
     src/Camera.h \
+    src/KdTree.h \
     src/Line.h \
     src/Material.h \
     src/Mesh.h \

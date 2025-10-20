@@ -22,6 +22,7 @@
 #include "src/matrixUtilities.h"
 #include <GL/glut.h>
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -33,7 +34,11 @@
 using namespace std;
 
 const unsigned int NSAMPLES = 50;
-const unsigned int SHADOW_RAYS = 50;
+const unsigned int SHADOW_RAYS = 0;
+// const string MESH_PATH = "data/triangle.off";
+const string MESH_PATH = "data/nefertiti.off";
+// const string MESH_PATH = "data/unit_sphere_n.off";
+const bool USE_KDTREE = true;
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
@@ -163,11 +168,12 @@ void idle() {
 
 void ray_trace_from_camera() {
     int w = glutGet(GLUT_WINDOW_WIDTH), h = glutGet(GLUT_WINDOW_HEIGHT);
-    cout << "Ray tracing a " << w << " x " << h << " image" << endl;
+    cout << "Ray tracing a " << w << " x " << h << (USE_KDTREE ? " image with kd_tree" : " image") << endl;
     camera.apply();
     Vec3 pos, dir;
     vector<Vec3> image(w * h, Vec3(0, 0, 0));
     int n_pixels = h * w;
+    auto begin = chrono::high_resolution_clock::now();
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             int pixel_i = y * w + x;
@@ -178,14 +184,16 @@ void ray_trace_from_camera() {
                 float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / h;
                 // this is a random uv that belongs to the pixel xy.
                 screen_space_to_world_space_ray(u, v, pos, dir);
-                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir, 1.), camera.getNearPlane(), camera.getFarPlane(), SHADOW_RAYS);
+                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir, 1.), 0., camera.getFarPlane(), SHADOW_RAYS);
                 image[x + y * w] += color;
             }
             image[x + y * w] /= NSAMPLES;
         }
     }
+    auto end = chrono::high_resolution_clock::now();
+    auto elapsed = chrono::duration_cast<chrono::seconds>(end - begin).count();
     cout << endl
-         << "\tDone" << endl;
+         << "\tDone in " << elapsed << " seconds." << endl;
 
     string filename = "./rendu.ppm";
     ofstream f(filename.c_str(), ios::binary);
@@ -313,11 +321,11 @@ int main(int argc, char **argv) {
     camera.move(0., 0., -3.1);
     selected_scene = 0;
     scenes.resize(5);
-    scenes[0].setup_single_sphere();
-    scenes[1].setup_single_square();
-    scenes[2].setup_cornell_box();
-    scenes[3].setup_single_mesh("data/unit_sphere_n.off");
-    scenes[4].setup_refraction_test();
+    // scenes[0].setup_single_sphere();
+    // scenes[1].setup_single_square();
+    // scenes[2].setup_cornell_box();
+    scenes[3].setup_single_mesh(MESH_PATH);
+    // scenes[4].setup_refraction_test();
 
     glutMainLoop();
     return EXIT_SUCCESS;

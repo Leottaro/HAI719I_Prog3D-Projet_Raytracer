@@ -73,6 +73,10 @@ public:
     static Vec3 compProduct(Vec3 const &a, Vec3 const &b) {
         return Vec3(a[0] * b[0], a[1] * b[1], a[2] * b[2]);
     }
+    static float distance(Vec3 const &a, Vec3 const &b) {
+        Vec3 res = Vec3(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+        return res.norm();
+    }
 
     unsigned int getMaxAbsoluteComponent() const {
         if (fabs(mVals[0]) > fabs(mVals[1])) {
@@ -118,6 +122,12 @@ static inline ostream &operator<<(ostream &s, Vec3 const &p) {
 static inline istream &operator>>(istream &s, Vec3 &p) {
     s >> p[0] >> p[1] >> p[2];
     return s;
+}
+static inline bool operator==(Vec3 const &a, Vec3 const &b) {
+    return fabs(a[0] - b[0]) <= 0.00001 && fabs(a[1] - b[1]) <= 0.00001 && fabs(a[2] - b[2]) <= 0.00001;
+}
+static inline bool operator!=(Vec3 const &a, Vec3 const &b) {
+    return !(a == b);
 }
 
 class Mat3 {
