@@ -116,7 +116,7 @@ protected:
             passed_triangles[i] = kd_triangle;
         }
 
-        this->kdtree = new KdTree(passed_triangles, min, max, (max - min).getMaxAbsoluteComponent(), 10);
+        this->kdtree = new KdTree(passed_triangles, BoundingBox(min, max), (max - min).getMaxAbsoluteComponent(), 32);
     }
 
 public:

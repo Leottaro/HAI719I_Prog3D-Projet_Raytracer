@@ -33,7 +33,7 @@
 
 using namespace std;
 
-const unsigned int NSAMPLES = 50;
+const unsigned int NSAMPLES = 2;
 const unsigned int SHADOW_RAYS = 0;
 // const string MESH_PATH = "data/triangle.off";
 const string MESH_PATH = "data/nefertiti.off";
@@ -187,7 +187,7 @@ void ray_trace_from_camera() {
                 Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir, 1.), 0., camera.getFarPlane(), SHADOW_RAYS);
                 image[x + y * w] += color;
             }
-            image[x + y * w] /= NSAMPLES;
+            image[x + y * w] /= (float)NSAMPLES;
         }
     }
     auto end = chrono::high_resolution_clock::now();
