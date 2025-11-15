@@ -8,7 +8,7 @@
 #include <GL/glut.h>
 
 enum MaterialType {
-    Material_Diffuse_Blinn_Phong,
+    Material_DiffUSE_PHONG,
     Material_Glass,
     Material_Mirror
 };
@@ -25,7 +25,7 @@ struct Material {
     MaterialType type;
 
     Material() {
-        type = Material_Diffuse_Blinn_Phong;
+        type = Material_DiffUSE_PHONG;
         transparency = 0.0;
         index_medium = 1.0;
         ambient_material = Vec3(0., 0., 0.);

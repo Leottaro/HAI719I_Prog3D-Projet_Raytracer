@@ -5,6 +5,7 @@
 #include "Ray.h"
 #include "Triangle.h"
 #include "Vec3.h"
+#include "Constants.h"
 #include <GL/glut.h>
 #include <algorithm>
 #include <cassert>
@@ -90,12 +91,12 @@ protected:
     KdTree *right = nullptr;
 
 public:
-    KdTree() {}
-    KdTree(vector<KdTriangle> kd_triangles, BoundingBox bounding_box, unsigned short split_axis, size_t max_triangles_per_leaf) {
+    KdTree(vector<KdTriangle> kd_triangles, BoundingBox bounding_box, unsigned short split_axis) {
         this->bounding_box = bounding_box;
         this->split_axis = split_axis;
-        this->is_leaf = kd_triangles.size() <= max_triangles_per_leaf;
+        this->is_leaf = kd_triangles.size() <= constants::kdtree::MAX_LEAF_SIZE;
 
+        assert(constants::kdtree::MAX_LEAF_SIZE > 0);
         assert(split_axis >= 0 && split_axis <= 2);
         assert(!kd_triangles.empty());
         for (const auto &triangle : kd_triangles) {
@@ -148,10 +149,10 @@ public:
 
         size_t new_split_axis = (split_axis + 1) % 3;
         if (!left_triangles.empty()) {
-            this->left = new KdTree(left_triangles, left_bounding_box, new_split_axis, max_triangles_per_leaf);
+            this->left = new KdTree(left_triangles, left_bounding_box, new_split_axis);
         }
         if (!right_triangles.empty()) {
-            this->right = new KdTree(right_triangles, right_bounding_box, new_split_axis, max_triangles_per_leaf);
+            this->right = new KdTree(right_triangles, right_bounding_box, new_split_axis);
         }
     }
 
@@ -169,9 +170,6 @@ public:
     //         this->right = nullptr;
     //     }
     // }
-
-    KdTree(const KdTree &) = delete;
-    KdTree &operator=(const KdTree &) = delete;
 
     bool intersect(Ray const &ray, KdTriangle &res) const {
         float tttttttt;

@@ -20,6 +20,7 @@
 #include "src/Vec3.h"
 #include "src/imageLoader.h"
 #include "src/matrixUtilities.h"
+#include "src/Constants.h"
 #include <GL/glut.h>
 #include <algorithm>
 #include <chrono>
@@ -32,13 +33,7 @@
 #include <vector>
 
 using namespace std;
-
-const unsigned int NSAMPLES = 2;
-const unsigned int SHADOW_RAYS = 0;
-// const string MESH_PATH = "data/triangle.off";
-const string MESH_PATH = "data/nefertiti.off";
-// const string MESH_PATH = "data/unit_sphere_n.off";
-const bool USE_KDTREE = true;
+using namespace constants;
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
@@ -168,7 +163,7 @@ void idle() {
 
 void ray_trace_from_camera() {
     int w = glutGet(GLUT_WINDOW_WIDTH), h = glutGet(GLUT_WINDOW_HEIGHT);
-    cout << "Ray tracing a " << w << " x " << h << (USE_KDTREE ? " image with kd_tree" : " image") << endl;
+    cout << "Ray tracing a " << w << " x " << h << "image :" << endl;
     camera.apply();
     Vec3 pos, dir;
     vector<Vec3> image(w * h, Vec3(0, 0, 0));
@@ -179,15 +174,15 @@ void ray_trace_from_camera() {
             int pixel_i = y * w + x;
             float percent = 100.0f * (float)pixel_i / n_pixels;
             cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << percent << "% completed)" << flush;
-            for (unsigned int s = 0; s < NSAMPLES; ++s) {
+            for (unsigned int s = 0; s < constants::general::NSAMPLES; ++s) {
                 float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / w;
                 float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / h;
                 // this is a random uv that belongs to the pixel xy.
                 screen_space_to_world_space_ray(u, v, pos, dir);
-                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir, 1.), 0., camera.getFarPlane(), SHADOW_RAYS);
+                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir), 0., camera.getFarPlane());
                 image[x + y * w] += color;
             }
-            image[x + y * w] /= (float)NSAMPLES;
+            image[x + y * w] /= (float)constants::general::NSAMPLES;
         }
     }
     auto end = chrono::high_resolution_clock::now();
@@ -318,14 +313,29 @@ int main(int argc, char **argv) {
     glutMouseFunc(mouse);
     key('?', 0, 0);
 
+    cout << "Constants :" << endl
+    << "\tgeneral :" << endl
+    << "\t\tNSAMPLES: " << constants::general::NSAMPLES << endl 
+    << "\t\tMESH_PATH: " << constants::general::MESH_PATH << endl
+    << "\tphong :" << endl
+    << "\t\tENABLED: " << constants::phong::ENABLED << endl 
+    << "\t\tSHADOW_RAYS: " << constants::phong::SHADOW_RAYS << endl 
+    << "\tmaterials :" << endl
+    << "\t\tENABLE_MIRROR: " << constants::materials::ENABLE_MIRROR << endl 
+    << "\t\tENABLE_GLASS: " << constants::materials::ENABLE_GLASS << endl 
+    << "\t\tAIR_INDEX_MEDIUM: " << constants::materials::AIR_INDEX_MEDIUM << endl 
+    << "\tkdtree :" << endl
+    << "\t\tMAX_LEAF_SIZE: " << constants::kdtree::MAX_LEAF_SIZE << (constants::kdtree::MAX_LEAF_SIZE == 0 ? "(disabled)": "") << endl
+    << endl;
+
     camera.move(0., 0., -3.1);
     selected_scene = 0;
     scenes.resize(5);
-    // scenes[0].setup_single_sphere();
-    // scenes[1].setup_single_square();
-    // scenes[2].setup_cornell_box();
-    scenes[3].setup_single_mesh(MESH_PATH);
-    // scenes[4].setup_refraction_test();
+    scenes[0].setup_single_sphere();
+    scenes[1].setup_single_square();
+    scenes[2].setup_cornell_box();
+    scenes[3].setup_single_mesh();
+    scenes[4].setup_refraction_test();
 
     glutMainLoop();
     return EXIT_SUCCESS;

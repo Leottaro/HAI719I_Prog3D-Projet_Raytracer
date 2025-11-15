@@ -1,4 +1,5 @@
 .qtc_clangd/.cache
 **/*.o
 main
-rendu.ppm
+**/*.ppm
+**/.~*#

@@ -6,6 +6,7 @@
 #include "Ray.h"
 #include "Triangle.h"
 #include "Vec3.h"
+#include "Constants.h"
 #include <GL/glut.h>
 #include <algorithm>
 #include <string>
@@ -116,7 +117,7 @@ protected:
             passed_triangles[i] = kd_triangle;
         }
 
-        this->kdtree = new KdTree(passed_triangles, BoundingBox(min, max), (max - min).getMaxAbsoluteComponent(), 32);
+        this->kdtree = new KdTree(passed_triangles, BoundingBox(min, max), (max - min).getMaxAbsoluteComponent());
     }
 
 public:
@@ -131,9 +132,9 @@ public:
     Material material;
     KdTree *kdtree;
 
-    ~Mesh() {
-        delete kdtree;
-    }
+    // ~Mesh() {
+    //     delete kdtree;
+    // }
 
     void loadOFF(const string &filename);
     void recomputeNormals();
@@ -227,6 +228,10 @@ public:
     }
 
     RayTriangleIntersection intersect(Ray const &ray) const {
+        return constants::kdtree::MAX_LEAF_SIZE > 0 ? intersect_kdtree(ray) : intersect_no_kdtree(ray);
+    }
+
+    RayTriangleIntersection intersect_no_kdtree(Ray const &ray) const {
         RayTriangleIntersection closestIntersection = RayTriangleIntersection();
 
         // Creer un objet Triangle pour chaque face

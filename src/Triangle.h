@@ -94,7 +94,7 @@ public:
         }
 
         // calculate the intersection
-        float t;
+        float t = 0;
         Vec3 P = getIntersectionPointWithSupportPlane(ray, t);
 
         // 2) check that the triangle is "in front of" the ray
