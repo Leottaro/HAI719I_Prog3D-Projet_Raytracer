@@ -1,12 +1,12 @@
 #ifndef MESH_H
 #define MESH_H
 
+#include "Constants.h"
 #include "KdTree.h"
 #include "Material.h"
 #include "Ray.h"
 #include "Triangle.h"
 #include "Vec3.h"
-#include "Constants.h"
 #include <GL/glut.h>
 #include <algorithm>
 #include <string>

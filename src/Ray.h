@@ -1,7 +1,7 @@
 #ifndef RAY_H
 #define RAY_H
-#include "Line.h"
 #include "Constants.h"
+#include "Line.h"
 class Ray : public Line {
 public:
     vector<float> index_mediums;

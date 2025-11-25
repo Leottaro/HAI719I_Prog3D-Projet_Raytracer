@@ -1,10 +1,10 @@
 #ifndef SCENE_H
 #define SCENE_H
 
+#include "Constants.h"
 #include "Mesh.h"
 #include "Sphere.h"
 #include "Square.h"
-#include "Constants.h"
 #include <GL/glut.h>
 #include <string>
 #include <vector>
@@ -335,7 +335,7 @@ public:
         //     s.material.specular_material = Vec3(1., 0., 1.);
         //     s.material.shininess = 16;
         // }
-        
+
         { // Light
             lights.resize(lights.size() + 1);
             Light &light = lights[lights.size() - 1];

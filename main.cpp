@@ -15,12 +15,12 @@
 // -------------------------------------------
 
 #include "src/Camera.h"
+#include "src/Constants.h"
 #include "src/Material.h"
 #include "src/Scene.h"
 #include "src/Vec3.h"
 #include "src/imageLoader.h"
 #include "src/matrixUtilities.h"
-#include "src/Constants.h"
 #include <GL/glut.h>
 #include <algorithm>
 #include <chrono>
@@ -314,19 +314,19 @@ int main(int argc, char **argv) {
     key('?', 0, 0);
 
     cout << "Constants :" << endl
-    << "\tgeneral :" << endl
-    << "\t\tNSAMPLES: " << constants::general::NSAMPLES << endl 
-    << "\t\tMESH_PATH: " << constants::general::MESH_PATH << endl
-    << "\tphong :" << endl
-    << "\t\tENABLED: " << constants::phong::ENABLED << endl 
-    << "\t\tSHADOW_RAYS: " << constants::phong::SHADOW_RAYS << endl 
-    << "\tmaterials :" << endl
-    << "\t\tENABLE_MIRROR: " << constants::materials::ENABLE_MIRROR << endl 
-    << "\t\tENABLE_GLASS: " << constants::materials::ENABLE_GLASS << endl 
-    << "\t\tAIR_INDEX_MEDIUM: " << constants::materials::AIR_INDEX_MEDIUM << endl 
-    << "\tkdtree :" << endl
-    << "\t\tMAX_LEAF_SIZE: " << constants::kdtree::MAX_LEAF_SIZE << (constants::kdtree::MAX_LEAF_SIZE == 0 ? "(disabled)": "") << endl
-    << endl;
+         << "\tgeneral :" << endl
+         << "\t\tNSAMPLES: " << constants::general::NSAMPLES << endl
+         << "\t\tMESH_PATH: " << constants::general::MESH_PATH << endl
+         << "\tphong :" << endl
+         << "\t\tENABLED: " << constants::phong::ENABLED << endl
+         << "\t\tSHADOW_RAYS: " << constants::phong::SHADOW_RAYS << endl
+         << "\tmaterials :" << endl
+         << "\t\tENABLE_MIRROR: " << constants::materials::ENABLE_MIRROR << endl
+         << "\t\tENABLE_GLASS: " << constants::materials::ENABLE_GLASS << endl
+         << "\t\tAIR_INDEX_MEDIUM: " << constants::materials::AIR_INDEX_MEDIUM << endl
+         << "\tkdtree :" << endl
+         << "\t\tMAX_LEAF_SIZE: " << constants::kdtree::MAX_LEAF_SIZE << (constants::kdtree::MAX_LEAF_SIZE == 0 ? "(disabled)" : "") << endl
+         << endl;
 
     camera.move(0., 0., -3.1);
     selected_scene = 0;

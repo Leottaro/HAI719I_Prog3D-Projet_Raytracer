@@ -1,11 +1,11 @@
 #ifndef KDTREE_H
 #define KDTREE_H
 
+#include "Constants.h"
 #include "Material.h"
 #include "Ray.h"
 #include "Triangle.h"
 #include "Vec3.h"
-#include "Constants.h"
 #include <GL/glut.h>
 #include <algorithm>
 #include <cassert>
@@ -125,7 +125,7 @@ public:
         right_min[split_axis] = this->split_pos;
         BoundingBox left_bounding_box = BoundingBox(bounding_box.min, left_max);
         BoundingBox right_bounding_box = BoundingBox(right_min, bounding_box.max);
-        
+
         // split the Triangles
         vector<KdTriangle> left_triangles;
         vector<KdTriangle> right_triangles;
@@ -180,7 +180,7 @@ public:
         if (this->is_leaf) {
             float closest_t = FLT_MAX;
             KdTriangle closest_kd_triangle;
-            for (const KdTriangle& kd_triangle : this->kd_triangles) {
+            for (const KdTriangle &kd_triangle : this->kd_triangles) {
                 Triangle triangle = Triangle(kd_triangle.v0, kd_triangle.v1, kd_triangle.v2);
                 RayTriangleIntersection intersection = triangle.getIntersection(ray);
                 if (intersection.intersectionExists && intersection.t < closest_t) {
