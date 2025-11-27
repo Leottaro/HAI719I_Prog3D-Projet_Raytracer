@@ -63,7 +63,7 @@ public:
             if (planes[i].isParallelTo(line)) {
                 continue;
             }
-            float t;
+            float t = 0.;
             planes[i].getIntersectionPoint(line, t);
             if (t < min_t) {
                 min_t = t;
@@ -172,29 +172,37 @@ public:
     // }
 
     bool intersect(Ray const &ray, KdTriangle &res) const {
-        float tttttttt;
-        if (!this->bounding_box.intersect(ray, tttttttt)) {
+        float t = 0;
+        if (!this->bounding_box.intersect(ray, t)) {
             return false;
         }
 
         if (this->is_leaf) {
-            float closest_t = FLT_MAX;
-            KdTriangle closest_kd_triangle;
-            for (const KdTriangle &kd_triangle : this->kd_triangles) {
-                Triangle triangle = Triangle(kd_triangle.v0, kd_triangle.v1, kd_triangle.v2);
-                RayTriangleIntersection intersection = triangle.getIntersection(ray);
-                if (intersection.intersectionExists && intersection.t < closest_t) {
-                    closest_kd_triangle = KdTriangle(kd_triangle);
-                    closest_t = intersection.t;
-                }
-            }
-            if (closest_t == FLT_MAX) {
-                return false;
-            }
-            res = closest_kd_triangle;
-            return true;
+            return this->intersect_leaf(ray, res);
+        } else {
+            return this->intersect_nonleaf(ray, res);
         }
+    }
 
+    bool intersect_leaf(Ray const &ray, KdTriangle &res) const {
+        float closest_t = FLT_MAX;
+        KdTriangle closest_kd_triangle;
+        for (const KdTriangle &kd_triangle : this->kd_triangles) {
+            Triangle triangle = Triangle(kd_triangle.v0, kd_triangle.v1, kd_triangle.v2);
+            RayTriangleIntersection intersection = triangle.getIntersection(ray);
+            if (intersection.intersectionExists && intersection.t < closest_t) {
+                closest_kd_triangle = KdTriangle(kd_triangle);
+                closest_t = intersection.t;
+            }
+        }
+        if (closest_t == FLT_MAX) {
+            return false;
+        }
+        res = closest_kd_triangle;
+        return true;
+    }
+
+    bool intersect_nonleaf(Ray const &ray, KdTriangle &res) const {
         KdTree *first = nullptr, *second = nullptr;
         float t_first = FLT_MAX, t_second = FLT_MAX;
 

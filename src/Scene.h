@@ -246,7 +246,7 @@ public:
     }
 
     Vec3 rayTrace(Ray const &rayStart, float min_t = 0.00001, float max_t = FLT_MAX) {
-        Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, 100);
+        Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, constants::general::MAX_BOUNCES);
         return color;
     }
 

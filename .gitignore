@@ -1,5 +1,7 @@
 .qtc_clangd/.cache
+build
 **/*.o
 main
 **/*.ppm
 **/.~*#
+callgrind.*

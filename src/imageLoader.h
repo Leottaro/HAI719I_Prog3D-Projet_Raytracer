@@ -2,7 +2,6 @@
 #define IMAGELOADER_H
 
 #include <fstream>
-#include <iostream>
 #include <string>
 #include <vector>
 

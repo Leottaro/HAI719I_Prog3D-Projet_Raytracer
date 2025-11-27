@@ -16,10 +16,8 @@
 
 #include "src/Camera.h"
 #include "src/Constants.h"
-#include "src/Material.h"
 #include "src/Scene.h"
 #include "src/Vec3.h"
-#include "src/imageLoader.h"
 #include "src/matrixUtilities.h"
 #include <GL/glut.h>
 #include <algorithm>
@@ -171,7 +169,7 @@ void ray_trace_from_camera() {
     auto begin = chrono::high_resolution_clock::now();
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            int pixel_i = y * w + x;
+            int pixel_i = y * w + x + 1;
             float percent = 100.0f * (float)pixel_i / n_pixels;
             cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << percent << "% completed)" << flush;
             for (unsigned int s = 0; s < constants::general::NSAMPLES; ++s) {

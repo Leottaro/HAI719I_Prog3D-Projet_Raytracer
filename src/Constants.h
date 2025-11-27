@@ -4,20 +4,21 @@
 namespace constants {
 
 namespace general {
-constexpr unsigned int NSAMPLES = 50;
+constexpr unsigned int NSAMPLES = 1;
 // constexpr char MESH_PATH[] = "data/triangle.off";
 constexpr char MESH_PATH[] = "data/nefertiti.off";
 // constexpr char MESH_PATH[] = "data/unit_sphere_n.off";
+constexpr int MAX_BOUNCES = 100;
 } // namespace general
 
 namespace phong {
 constexpr bool ENABLED = true;
-constexpr unsigned int SHADOW_RAYS = 16; // 16 default, 1 for hard shadows. Need PHONG enabled.
+constexpr unsigned int SHADOW_RAYS = 1; // 16 default, 1 for hard shadows. Need PHONG enabled.
 } // namespace phong
 
 namespace materials {
-constexpr bool ENABLE_MIRROR = false;
-constexpr bool ENABLE_GLASS = false;
+constexpr bool ENABLE_MIRROR = true;
+constexpr bool ENABLE_GLASS = true;
 constexpr float AIR_INDEX_MEDIUM = 1.;
 } // namespace materials
 
