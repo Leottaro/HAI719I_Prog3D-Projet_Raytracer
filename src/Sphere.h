@@ -15,17 +15,23 @@ struct RaySphereIntersection {
     RaySphereIntersection() : intersectionExists(false), t(FLT_MAX) {}
 };
 
-static Vec3 SphericalCoordinatesToEuclidean(Vec3 ThetaPhiR) {
-    return ThetaPhiR[2] * Vec3(cos(ThetaPhiR[0]) * cos(ThetaPhiR[1]), sin(ThetaPhiR[0]) * cos(ThetaPhiR[1]), sin(ThetaPhiR[1]));
-}
 static Vec3 SphericalCoordinatesToEuclidean(float theta, float phi) {
-    return Vec3(cos(theta) * cos(phi), sin(theta) * cos(phi), sin(phi));
+    float sinPhi = sinf(phi);
+    float x = sinPhi * sinf(theta);
+    float y = cosf(phi);
+    float z = sinPhi * cosf(theta);
+
+    return Vec3(x, y, z);
 }
 
 static Vec3 EuclideanCoordinatesToSpherical(Vec3 xyz) {
     float R = xyz.length();
-    float phi = asin(xyz[2] / R);
-    float theta = atan2(xyz[1], xyz[0]);
+    float theta = atan2(xyz[0], xyz[2]); // azimuth around y-axis, 0..2π
+    if (theta < 0.0f)
+        theta += 2.0f * M_PI;
+
+    float phi = acos(xyz[1] / R); // polar angle from +y axis, 0..π
+
     return Vec3(theta, phi, R);
 }
 

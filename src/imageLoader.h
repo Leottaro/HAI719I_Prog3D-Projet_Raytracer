@@ -1,6 +1,7 @@
 #ifndef IMAGELOADER_H
 #define IMAGELOADER_H
 
+#include "Vec3.h"
 #include <fstream>
 #include <string>
 #include <vector>
@@ -17,8 +18,12 @@ struct RGB {
 };
 
 struct ImageRGB {
-    int w, h;
+public:
+    size_t w, h;
     vector<RGB> data;
+
+    Vec3 getPixel(size_t x, size_t y) const;
+    Vec3 getPixel(float u, float v) const;
 };
 
 void load_ppm(ImageRGB &img, const string &name);

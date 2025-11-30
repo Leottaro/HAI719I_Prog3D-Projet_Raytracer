@@ -3,9 +3,8 @@
 
 #include "Vec3.h"
 #include "imageLoader.h"
-#include <cmath>
-
 #include <GL/glut.h>
+#include <cmath>
 
 enum MaterialType {
     Material_DiffUSE_PHONG,
@@ -14,6 +13,7 @@ enum MaterialType {
 };
 
 struct Material {
+    int image_id;
     Vec3 ambient_material;
     Vec3 diffuse_material;
     Vec3 specular_material;
@@ -26,8 +26,9 @@ struct Material {
 
     Material() {
         type = Material_DiffUSE_PHONG;
+        image_id = -1;
         transparency = 0.0;
-        index_medium = 1.0;
+        index_medium = constants::materials::AIR_INDEX_MEDIUM;
         ambient_material = Vec3(0., 0., 0.);
     }
 };

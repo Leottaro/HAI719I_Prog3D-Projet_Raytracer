@@ -23,8 +23,8 @@ CC = g++
 CPP = g++
 
 # options du compilateur          
-CFLAGS = -Wall -O3 
-CXXFLAGS = -Wall -O3 
+CFLAGS = -Wall -g 
+CXXFLAGS = -Wall -g 
 
 # option du preprocesseur
 CPPFLAGS =  -I$(INCDIR) 

@@ -1,4 +1,5 @@
 #include "imageLoader.h"
+#include "Vec3.h"
 #include <iostream>
 
 // Source courtesy of J. Manson
@@ -175,5 +176,13 @@ void load_ppm(unsigned char *&pixels, unsigned int &w, unsigned int &h, const st
         }
         return;
     }
+}
+
+Vec3 ImageRGB::getPixel(size_t x, size_t y) const {
+    size_t i = y * w + x;
+    return Vec3(data[i].r, data[i].g, data[i].b) / 255.;
+}
+Vec3 ImageRGB::getPixel(float u, float v) const {
+    return getPixel((size_t)(u * w), (size_t)(v * h));
 }
 } // namespace ppmLoader

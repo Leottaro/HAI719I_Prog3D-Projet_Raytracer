@@ -5,6 +5,7 @@
 #include "Mesh.h"
 #include "Sphere.h"
 #include "Square.h"
+#include "imageLoader.h"
 #include <GL/glut.h>
 #include <string>
 #include <vector>
@@ -33,7 +34,7 @@ struct Light {
 
 struct RaySceneIntersection {
     bool intersectionExists;
-    float t;
+    float t, u, v;
     Vec3 intersection;
     Vec3 normal;
     Material material;
@@ -50,6 +51,7 @@ class Scene {
     vector<Sphere> spheres;
     vector<Square> squares;
     vector<Light> lights;
+    vector<ppmLoader::ImageRGB> images;
 
 public:
     Scene() {}
@@ -78,6 +80,8 @@ public:
             if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
                 result.intersectionExists = true;
                 result.t = intersection.t;
+                result.u = intersection.theta / (2. * M_PI);
+                result.v = intersection.phi / M_PI;
                 result.intersection = intersection.intersection;
                 result.normal = intersection.normal;
                 result.material = spheres[i].material;
@@ -92,6 +96,8 @@ public:
             if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
                 result.intersectionExists = true;
                 result.t = intersection.t;
+                result.u = intersection.u;
+                result.v = intersection.v;
                 result.intersection = intersection.intersection;
                 result.normal = intersection.normal;
                 result.material = squares[i].material;
@@ -106,6 +112,8 @@ public:
             if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
                 result.intersectionExists = true;
                 result.t = intersection.t;
+                result.u = intersection.u;
+                result.v = intersection.v;
                 result.intersection = intersection.intersection;
                 result.normal = intersection.normal;
                 result.material = meshes[i].material;
@@ -125,7 +133,7 @@ public:
         }
         Material material = raySceneIntersection.material;
         Vec3 P = raySceneIntersection.intersection;
-        Vec3 I = material.diffuse_material;
+        Vec3 I = material.image_id == -1 ? material.diffuse_material : images[material.image_id].getPixel(raySceneIntersection.u, raySceneIntersection.v);
 
         if (constants::phong::ENABLED) {
             // https://en.wikipedia.org/wiki/Phong_reflection_model#Concepts AND
@@ -138,7 +146,7 @@ public:
             Vec3 Is = Vec3(0., 0., 0.);
 
             Vec3 ka = material.ambient_material;
-            Vec3 kd = material.diffuse_material;
+            Vec3 kd = I;
             Vec3 ks = material.specular_material;
             float alpha = material.shininess;
 
@@ -255,6 +263,13 @@ public:
         spheres.clear();
         squares.clear();
         lights.clear();
+        images.clear();
+
+        {
+            images.resize(images.size() + 1);
+            ppmLoader::ImageRGB &image = images[images.size() - 1];
+            ppmLoader::load_ppm(image, "img/sphereimages/s1.ppm");
+        }
 
         {
             lights.resize(lights.size() + 1);
@@ -270,7 +285,19 @@ public:
         {
             spheres.resize(spheres.size() + 1);
             Sphere &s1 = spheres[spheres.size() - 1];
-            s1.m_center = Vec3(1., 0., 0.);
+            s1.m_center = Vec3(0., 0., 0.);
+            s1.m_radius = 1.f;
+            s1.build_arrays();
+            s1.material.type = Material_DiffUSE_PHONG;
+            s1.material.diffuse_material = Vec3(0., 0., 0.);
+            s1.material.specular_material = Vec3(0.2, 0.2, 0.2);
+            s1.material.shininess = 20;
+            s1.material.image_id = 0;
+        }
+        {
+            spheres.resize(spheres.size() + 1);
+            Sphere &s1 = spheres[spheres.size() - 1];
+            s1.m_center = Vec3(3., 0., 0.);
             s1.m_radius = 1.f;
             s1.build_arrays();
             s1.material.type = Material_DiffUSE_PHONG;
@@ -281,11 +308,22 @@ public:
         {
             spheres.resize(spheres.size() + 1);
             Sphere &s2 = spheres[spheres.size() - 1];
-            s2.m_center = Vec3(-1., 0., 0.);
+            s2.m_center = Vec3(0., 3., 0.);
             s2.m_radius = 1.f;
             s2.build_arrays();
             s2.material.type = Material_DiffUSE_PHONG;
-            s2.material.diffuse_material = Vec3(0., 1., 0);
+            s2.material.diffuse_material = Vec3(0., 1., 0.);
+            s2.material.specular_material = Vec3(0.2, 0.2, 0.2);
+            s2.material.shininess = 20;
+        }
+        {
+            spheres.resize(spheres.size() + 1);
+            Sphere &s2 = spheres[spheres.size() - 1];
+            s2.m_center = Vec3(0., 0., 3.);
+            s2.m_radius = 1.f;
+            s2.build_arrays();
+            s2.material.type = Material_DiffUSE_PHONG;
+            s2.material.diffuse_material = Vec3(0., 0., 1.);
             s2.material.specular_material = Vec3(0.2, 0.2, 0.2);
             s2.material.shininess = 20;
         }
@@ -296,6 +334,7 @@ public:
         spheres.clear();
         squares.clear();
         lights.clear();
+        images.clear();
 
         {
             lights.resize(lights.size() + 1);
@@ -317,6 +356,7 @@ public:
             s.material.diffuse_material = Vec3(1., 0., 0.);
             s.material.specular_material = Vec3(1., 0., 0.);
             s.material.shininess = 20;
+            s.material.image_id = 0;
         }
     }
 
@@ -325,6 +365,7 @@ public:
         spheres.clear();
         squares.clear();
         lights.clear();
+        images.clear();
 
         // { // Light quad
         //     squares.resize(squares.size() + 1);
@@ -460,6 +501,7 @@ public:
         spheres.clear();
         squares.clear();
         lights.clear();
+        images.clear();
 
         {
             lights.resize(lights.size() + 1);
@@ -489,6 +531,13 @@ public:
         spheres.clear();
         squares.clear();
         lights.clear();
+        images.clear();
+
+        {
+            images.resize(images.size() + 1);
+            ppmLoader::ImageRGB &image = images[images.size() - 1];
+            ppmLoader::load_ppm(image, "img/test/1024.ppm");
+        }
 
         {
             lights.resize(lights.size() + 1);
@@ -501,22 +550,19 @@ public:
             light.isInCamSpace = false;
         }
 
-        size_t width = 50;
-        size_t depth = 50;
-        squares.resize(width * depth);
-        for (size_t z = 0; z < depth; z++) {
-            for (size_t x = 0; x < width; x++) {
-                size_t i = z * width + x;
-                Vec3 color = (x + z) % 2 == 0 ? Vec3(0.46, 0.59, 0.34) : Vec3(0.93, 0.93, 0.82);
-
-                Square &s = squares[i];
-                s.setQuad(Vec3((float)x - width / 2., -1., (float)z - depth / 2.), Vec3(0., 0, 1.), Vec3(1., 0., 0.), 1., 1.);
-                s.rotate_x(35);
-                s.build_arrays();
-                s.material.diffuse_material = Vec3(color);
-                s.material.specular_material = Vec3(color);
-                s.material.shininess = 16;
-            }
+        { // Floor
+            double size = 50.;
+            squares.resize(squares.size() + 1);
+            Square &s = squares[squares.size() - 1];
+            s.setQuad(Vec3(-1., -1., 0.), Vec3(1., 0, 0.), Vec3(0., 1, 0.), 2., 2.);
+            s.scale(Vec3(size, size, 1.));
+            s.translate(Vec3(0., 0., -1));
+            s.rotate_x(-60);
+            s.build_arrays();
+            s.material.diffuse_material = Vec3(1., 1., 0.);
+            s.material.specular_material = Vec3(1., 1., 0.);
+            s.material.shininess = 16;
+            s.material.image_id = 0;
         }
 
         { // Glass sphere
