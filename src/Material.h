@@ -29,7 +29,7 @@ struct Material {
         image_id = -1;
         transparency = 0.0;
         index_medium = constants::materials::AIR_INDEX_MEDIUM;
-        ambient_material = Vec3(0., 0., 0.);
+        ambient_material = Vec3();
     }
 };
 

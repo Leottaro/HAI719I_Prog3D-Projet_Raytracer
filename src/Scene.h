@@ -22,28 +22,84 @@ struct Light {
     bool isInCamSpace;
     LightType type;
 
-    Vec3 pos;
-    float radius;
-
+    Sphere sphere;
     Square quad;
 
     float powerCorrection;
 
     Light() : powerCorrection(1.0) {}
+
+    Vec3 getCentralPos() const {
+        switch (type) {
+        case LightType_Quad:
+            return quad.m_bottom_left + 0.5 * (quad.m_right_vector + quad.m_up_vector);
+        case LightType_Spherical:
+            return sphere.m_center;
+        default:
+            throw std::runtime_error("Light type not implemented in getPos()");
+        }
+    }
+};
+
+enum IntersectedObjectType {
+    TriangleIntersection = 0,
+    SphereIntersection = 1,
+    SquareIntersection = 2,
+    LightIntersection = 3,
 };
 
 struct RaySceneIntersection {
+    // private:
     bool intersectionExists;
     float t, u, v;
     Vec3 intersection;
     Vec3 normal;
     Material material;
-    unsigned int typeOfIntersectedObject;
+    IntersectedObjectType typeOfIntersectedObject;
     unsigned int objectIndex;
     RayTriangleIntersection rayMeshIntersection;
     RaySphereIntersection raySphereIntersection;
     RaySquareIntersection raySquareIntersection;
+
+public:
     RaySceneIntersection(float max_t = FLT_MAX) : intersectionExists(false), t(max_t) {}
+
+    void setRaySphereIntersection(const RaySphereIntersection &intersection, const Material &material, int object_i) {
+        this->intersectionExists = true;
+        this->t = intersection.t;
+        this->u = intersection.theta / (2. * M_PI);
+        this->v = intersection.phi / M_PI;
+        this->intersection = intersection.intersection;
+        this->material = material;
+        this->normal = intersection.normal;
+        this->typeOfIntersectedObject = SphereIntersection;
+        this->objectIndex = object_i;
+        this->raySphereIntersection = intersection;
+    }
+    void setRaySquareIntersection(const RaySquareIntersection &intersection, const Material &material, int object_i) {
+        this->intersectionExists = true;
+        this->t = intersection.t;
+        this->u = intersection.u;
+        this->v = intersection.v;
+        this->intersection = intersection.intersection;
+        this->normal = intersection.normal;
+        this->material = material;
+        this->typeOfIntersectedObject = SquareIntersection;
+        this->objectIndex = object_i;
+        this->raySquareIntersection = intersection;
+    }
+    void setRayTriangleIntersection(const RayTriangleIntersection &intersection, const Material &material, int object_i) {
+        this->intersectionExists = true;
+        this->t = intersection.t;
+        this->u = intersection.u;
+        this->v = intersection.v;
+        this->intersection = intersection.intersection;
+        this->normal = intersection.normal;
+        this->material = material;
+        this->typeOfIntersectedObject = TriangleIntersection;
+        this->objectIndex = object_i;
+        this->rayMeshIntersection = intersection;
+    }
 };
 
 class Scene {
@@ -52,6 +108,180 @@ class Scene {
     vector<Square> squares;
     vector<Light> lights;
     vector<ppmLoader::ImageRGB> images;
+
+private:
+    RaySceneIntersection computeIntersection(Ray const &ray, float min_t, float max_t, bool intersect_lights) {
+        RaySceneIntersection result = RaySceneIntersection(max_t);
+
+        for (unsigned int i = 0; i < spheres.size(); i++) {
+            RaySphereIntersection intersection = spheres[i].intersect(ray);
+            if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+                result.setRaySphereIntersection(intersection, spheres[i].material, i);
+            }
+        }
+
+        for (unsigned int i = 0; i < squares.size(); i++) {
+            RaySquareIntersection intersection = squares[i].intersect(ray, false);
+            if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+                result.setRaySquareIntersection(intersection, squares[i].material, i);
+            }
+        }
+
+        for (unsigned int i = 0; i < meshes.size(); i++) {
+            RayTriangleIntersection intersection = meshes[i].intersect(ray);
+            if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+                result.setRayTriangleIntersection(intersection, meshes[i].material, i);
+            }
+        }
+
+        if (intersect_lights) {
+            for (unsigned int i = 0; i < lights.size(); i++) {
+                switch (lights[i].type) {
+                case LightType_Quad: {
+                    RaySquareIntersection intersection = lights[i].quad.intersect(ray, true);
+                    if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+                        result.setRaySquareIntersection(intersection, lights[i].quad.material, i);
+                        result.typeOfIntersectedObject = LightIntersection;
+                    }
+                } break;
+                case LightType_Spherical: {
+                    RaySphereIntersection intersection = lights[i].sphere.intersect(ray);
+                    if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+                        result.setRaySphereIntersection(intersection, lights[i].sphere.material, i);
+                        result.typeOfIntersectedObject = LightIntersection;
+                    }
+                } break;
+                default:
+                    throw std::runtime_error("Light type not implemented in Scene::computeIntersection(...)");
+                }
+            }
+        }
+
+        return result;
+    }
+
+    Ray computeReflectionRay(Ray const &ray, RaySceneIntersection &intersection) {
+        // https://en.wikipedia.org/wiki/Specular_reflection#Vector_formulation
+        Vec3 di = ray.direction();
+        Vec3 dn = intersection.normal;
+
+        Vec3 v_reflect = di - 2. * dn * Vec3::dot(di, dn);
+        v_reflect.normalize();
+        Ray reflection_ray = Ray(intersection.intersection, v_reflect, ray.index_mediums, ray.object_types, ray.object_indices);
+        return reflection_ray;
+    }
+
+    Ray computeRefractionRay(Ray ray, RaySceneIntersection &intersection) {
+        float nL, nT;
+        if (ray.object_types[ray.object_types.size() - 1] == static_cast<unsigned int>(intersection.typeOfIntersectedObject) &&
+            ray.object_indices[ray.object_indices.size() - 1] == intersection.objectIndex) {
+            nL = ray.index_mediums[ray.index_mediums.size() - 1];
+            ray.index_mediums.pop_back();
+            ray.object_types.pop_back();
+            ray.object_indices.pop_back();
+            nT = ray.index_mediums[ray.index_mediums.size() - 1];
+        } else {
+            nL = ray.index_mediums[ray.index_mediums.size() - 1];
+            ray.index_mediums.push_back(intersection.material.index_medium);
+            ray.object_types.push_back(static_cast<unsigned int>(intersection.typeOfIntersectedObject));
+            ray.object_indices.push_back(intersection.objectIndex);
+            nT = ray.index_mediums[ray.index_mediums.size() - 1];
+        }
+
+        // https://amrhmorsy.github.io/blog/2024/RefractionVectorCalculation/
+        Vec3 L = ray.direction();
+        Vec3 N = intersection.normal;
+
+        Vec3 LparallelN = Vec3::dot(N, L) * N;
+        Vec3 LperpendicularN = L - LparallelN;
+        float sin_thetaL = LperpendicularN.norm();
+
+        // TODO: https://en.wikipedia.org/wiki/Fresnel_equations
+        if (sin_thetaL <= nT / nL) {
+            float r = nL / nT;
+            float c = Vec3::dot(N, L);
+            Vec3 T = N * (-r * c - sqrt(1 - r * r * (1 - c * c))) + L * r; // v_refract
+            Ray refraction_ray = Ray(intersection.intersection, T, ray.index_mediums, ray.object_types, ray.object_indices);
+            return refraction_ray;
+        } else {
+            return computeReflectionRay(ray, intersection);
+        }
+    }
+
+    float computeShadowIndex(const Ray &ray, const RaySceneIntersection &intersection, const Light &light, int max_t) {
+        int shadow_count = 0;
+        for (unsigned int i = 0; i < constants::phong::SHADOW_RAYS; i++) {
+            Vec3 sampled_pos;
+            if (constants::phong::SHADOW_RAYS == 1) {
+                sampled_pos = light.getCentralPos();
+            } else {
+                if (light.type == LightType_Spherical) {
+                    float theta = 2 * M_PI * ((float)rand()) / RAND_MAX;
+                    float phi = M_PI * ((float)rand()) / RAND_MAX;
+                    float r = light.sphere.m_radius * sqrt(((float)rand()) / RAND_MAX);
+                    sampled_pos = light.sphere.m_center + r * SphericalCoordinatesToEuclidean(theta, phi);
+                } else {
+                    float u = ((float)rand()) / RAND_MAX;
+                    float r = ((float)rand()) / RAND_MAX;
+                    sampled_pos = light.quad.m_bottom_left + u * light.quad.m_up_vector + r * light.quad.m_right_vector;
+                }
+            }
+            Ray shadow_ray = Ray(intersection.intersection, sampled_pos - intersection.intersection, ray.index_mediums, ray.object_types, ray.object_indices);
+            RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, 0.00001, max_t, true);
+            if (shadow_intersection.intersectionExists && shadow_intersection.typeOfIntersectedObject != LightIntersection) {
+                shadow_count++;
+            }
+        }
+        return (float)shadow_count / constants::phong::SHADOW_RAYS;
+    }
+
+    Vec3 phong(Ray const &ray, RaySceneIntersection const &intersection, int max_t, int NRemainingBounces) {
+        const Material &material = intersection.material;
+        const Vec3 &P = intersection.intersection;
+        const Vec3 kd = material.image_id == -1 ? material.diffuse_material : images[material.image_id].getPixel(intersection.u, intersection.v);
+
+        if (!constants::phong::ENABLED) {
+            return kd;
+        }
+
+        // https://en.wikipedia.org/wiki/Phong_reflection_model#Concepts AND
+        // https://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_reflection_model
+        const Vec3 V = -1 * ray.direction();
+        const Vec3 &N = intersection.normal;
+
+        Vec3 Ia = Vec3();
+        Vec3 Id = Vec3();
+        Vec3 Is = Vec3();
+
+        const Vec3 &ka = material.ambient_material;
+        const Vec3 &ks = material.specular_material;
+        const float &alpha = material.shininess;
+
+        for (unsigned int light_i = 0; light_i < lights.size(); light_i++) {
+            Light const &light = lights[light_i];
+
+            // bidouillage 2
+            float ia = 1.;
+            float id = 1.;
+            float is = 1.;
+
+            Vec3 light_pos = light.getCentralPos();
+            Vec3 L = light_pos - P;
+            L.normalize();
+
+            float shadow_index = constants::phong::SHADOW_RAYS > 0 ? computeShadowIndex(ray, intersection, light, max_t) : 0.;
+
+            float LdotN = Vec3::dot(L, N);
+            Vec3 R = 2. * N * LdotN - L;
+            R.normalize();
+
+            float RdotV = Vec3::dot(R, V);
+            Ia += ka * ia;
+            Id += LdotN > 0.00001 ? (1. - shadow_index) * kd * LdotN * id : Vec3();
+            Is += RdotV > 0.00001 ? (1. - shadow_index) * ks * pow(RdotV, alpha) * is : Vec3();
+        }
+        return Ia + Id + Is;
+    }
 
 public:
     Scene() {}
@@ -72,178 +302,23 @@ public:
         }
     }
 
-    RaySceneIntersection computeIntersection(Ray const &ray, float min_t, float max_t) {
-        RaySceneIntersection result = RaySceneIntersection(max_t);
-
-        for (unsigned int i = 0; i < spheres.size(); i++) {
-            RaySphereIntersection intersection = spheres[i].intersect(ray);
-            if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
-                result.intersectionExists = true;
-                result.t = intersection.t;
-                result.u = intersection.theta / (2. * M_PI);
-                result.v = intersection.phi / M_PI;
-                result.intersection = intersection.intersection;
-                result.normal = intersection.normal;
-                result.material = spheres[i].material;
-                result.typeOfIntersectedObject = 0;
-                result.objectIndex = i;
-                result.raySphereIntersection = intersection;
-            }
-        }
-
-        for (unsigned int i = 0; i < squares.size(); i++) {
-            RaySquareIntersection intersection = squares[i].intersect(ray);
-            if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
-                result.intersectionExists = true;
-                result.t = intersection.t;
-                result.u = intersection.u;
-                result.v = intersection.v;
-                result.intersection = intersection.intersection;
-                result.normal = intersection.normal;
-                result.material = squares[i].material;
-                result.typeOfIntersectedObject = 1;
-                result.objectIndex = i;
-                result.raySquareIntersection = intersection;
-            }
-        }
-
-        for (unsigned int i = 0; i < meshes.size(); i++) {
-            RayTriangleIntersection intersection = meshes[i].intersect(ray);
-            if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
-                result.intersectionExists = true;
-                result.t = intersection.t;
-                result.u = intersection.u;
-                result.v = intersection.v;
-                result.intersection = intersection.intersection;
-                result.normal = intersection.normal;
-                result.material = meshes[i].material;
-                result.typeOfIntersectedObject = 2;
-                result.objectIndex = i;
-                result.rayMeshIntersection = intersection;
-            }
-        }
-
-        return result;
-    }
-
     Vec3 rayTraceRecursive(Ray ray, float min_t, float max_t, int NRemainingBounces) {
-        RaySceneIntersection raySceneIntersection = computeIntersection(ray, min_t, max_t);
+        RaySceneIntersection raySceneIntersection = computeIntersection(ray, min_t, max_t, false);
         if (!raySceneIntersection.intersectionExists) {
-            return Vec3(0., 0., 0.);
+            return Vec3();
         }
+
         Material material = raySceneIntersection.material;
-        Vec3 P = raySceneIntersection.intersection;
-        Vec3 I = material.image_id == -1 ? material.diffuse_material : images[material.image_id].getPixel(raySceneIntersection.u, raySceneIntersection.v);
-
-        if (constants::phong::ENABLED) {
-            // https://en.wikipedia.org/wiki/Phong_reflection_model#Concepts AND
-            // https://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_reflection_model
-            const Vec3 V = -1 * ray.direction();
-            const Vec3 &N = raySceneIntersection.normal;
-
-            Vec3 Ia = Vec3(0., 0., 0.);
-            Vec3 Id = Vec3(0., 0., 0.);
-            Vec3 Is = Vec3(0., 0., 0.);
-
-            Vec3 ka = material.ambient_material;
-            Vec3 kd = I;
-            Vec3 ks = material.specular_material;
-            float alpha = material.shininess;
-
-            float one_over_shadow_sample = 1. / (float)constants::phong::SHADOW_RAYS;
-            for (Light light : lights) {
-                // bidouillage 2
-                float ia = 1.;
-                float id = 1.;
-                float is = 1.;
-
-                Vec3 L = light.pos - P;
-                float L_norm = L.norm();
-                L /= L_norm;
-
-                float shadow_factor = 1.;
-                for (unsigned int i = 0; i < constants::phong::SHADOW_RAYS; i++) {
-                    Vec3 sampled_pos;
-                    if (constants::phong::SHADOW_RAYS == 1) {
-                        sampled_pos = light.pos;
-                    } else {
-                        if (light.type == LightType_Spherical) {
-                            float theta = 2 * M_PI * ((float)rand()) / RAND_MAX;
-                            float phi = M_PI * ((float)rand()) / RAND_MAX;
-                            float r = light.radius * sqrt(((float)rand()) / RAND_MAX);
-                            sampled_pos = light.pos + r * SphericalCoordinatesToEuclidean(theta, phi);
-                        } else {
-                            float u = ((float)rand()) / RAND_MAX;
-                            float r = ((float)rand()) / RAND_MAX;
-                            sampled_pos = light.quad.m_bottom_left + u * light.quad.m_up_vector + r * light.quad.m_right_vector;
-                        }
-                    }
-                    Ray shadow_ray = Ray(P, sampled_pos - P, ray.index_mediums, ray.object_types, ray.object_indices);
-                    RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, 0.00001, L_norm - 0.00001);
-                    if (shadow_intersection.intersectionExists) {
-                        shadow_factor -= one_over_shadow_sample;
-                    }
-                }
-
-                float LdotN = Vec3::dot(L, N);
-                Vec3 R = 2. * N * LdotN - L;
-                R.normalize();
-
-                float RdotV = Vec3::dot(R, V);
-                Ia += ka * ia;
-                Id += LdotN > 0.00001 ? shadow_factor * kd * LdotN * id : Vec3();
-                Is += RdotV > 0.00001 ? shadow_factor * ks * pow(RdotV, alpha) * is : Vec3();
-            }
-            I = Ia + Id + Is;
-        }
+        Vec3 I = phong(ray, raySceneIntersection, max_t, NRemainingBounces);
 
         if (constants::materials::ENABLE_GLASS && material.type == Material_Glass && NRemainingBounces > 0) {
-            float nL, nT;
-            if (ray.object_types[ray.object_types.size() - 1] == raySceneIntersection.typeOfIntersectedObject && ray.object_indices[ray.object_indices.size() - 1] == raySceneIntersection.objectIndex) {
-                nL = ray.index_mediums[ray.index_mediums.size() - 1];
-                ray.index_mediums.pop_back();
-                ray.object_types.pop_back();
-                ray.object_indices.pop_back();
-                nT = ray.index_mediums[ray.index_mediums.size() - 1];
-            } else {
-                nL = ray.index_mediums[ray.index_mediums.size() - 1];
-                ray.index_mediums.push_back(material.index_medium);
-                ray.object_types.push_back(raySceneIntersection.typeOfIntersectedObject);
-                ray.object_indices.push_back(raySceneIntersection.objectIndex);
-                nT = ray.index_mediums[ray.index_mediums.size() - 1];
-            }
-
-            // https://amrhmorsy.github.io/blog/2024/RefractionVectorCalculation/
-            Vec3 L = ray.direction();
-            Vec3 N = raySceneIntersection.normal;
-
-            Vec3 LparallelN = Vec3::dot(N, L) * N;
-            Vec3 LperpendicularN = L - LparallelN;
-            float sin_thetaL = LperpendicularN.norm();
-
-            // TODO: https://en.wikipedia.org/wiki/Fresnel_equations
-            if (sin_thetaL <= nT / nL) {
-                float r = nL / nT;
-                float c = Vec3::dot(N, L);
-                Vec3 T = N * (-r * c - sqrt(1 - r * r * (1 - c * c))) + L * r; // v_refract
-                Ray refraction_ray = Ray(P, T, ray.index_mediums, ray.object_types, ray.object_indices);
-                Vec3 refraction_I = rayTraceRecursive(refraction_ray, 0.00001, max_t, NRemainingBounces - 1);
-                I = refraction_I;
-            } else {
-                material.type = Material_Mirror;
-            }
+            Ray refraction = computeRefractionRay(ray, raySceneIntersection);
+            I = rayTraceRecursive(refraction, 0.00001, max_t, NRemainingBounces - 1);
         }
 
         if (constants::materials::ENABLE_MIRROR && material.type == Material_Mirror && NRemainingBounces > 0) {
-            // https://en.wikipedia.org/wiki/Specular_reflection#Vector_formulation
-            Vec3 di = ray.direction();
-            Vec3 dn = raySceneIntersection.normal;
-
-            Vec3 v_reflect = di - 2. * dn * Vec3::dot(di, dn);
-            v_reflect.normalize();
-            Ray reflection_ray = Ray(P, v_reflect, ray.index_mediums, ray.object_types, ray.object_indices);
-            Vec3 reflection_I = rayTraceRecursive(reflection_ray, 0.00001, max_t, NRemainingBounces - 1);
-            I = reflection_I;
+            Ray reflection = computeReflectionRay(ray, raySceneIntersection);
+            I = rayTraceRecursive(reflection, 0.00001, max_t, NRemainingBounces - 1);
         }
 
         I[0] = min(max(0.f, I[0]), 1.f);
@@ -268,16 +343,15 @@ public:
         {
             images.resize(images.size() + 1);
             ppmLoader::ImageRGB &image = images[images.size() - 1];
-            ppmLoader::load_ppm(image, "img/sphereimages/s1.ppm");
+            ppmLoader::load_ppm(image, "img/sphereTextures/s1.ppm");
         }
 
         {
             lights.resize(lights.size() + 1);
             Light &light = lights[lights.size() - 1];
-            light.pos = Vec3(-5, 5, 5);
-            light.radius = 2.5f;
-            light.powerCorrection = 2.f;
             light.type = LightType_Spherical;
+            light.sphere = Sphere(Vec3(-5, 5, 5), 2.5f);
+            light.powerCorrection = 2.f;
             light.material = Vec3(1, 1, 1);
             light.isInCamSpace = false;
         }
@@ -285,11 +359,11 @@ public:
         {
             spheres.resize(spheres.size() + 1);
             Sphere &s1 = spheres[spheres.size() - 1];
-            s1.m_center = Vec3(0., 0., 0.);
+            s1.m_center = Vec3();
             s1.m_radius = 1.f;
             s1.build_arrays();
             s1.material.type = Material_DiffUSE_PHONG;
-            s1.material.diffuse_material = Vec3(0., 0., 0.);
+            s1.material.diffuse_material = Vec3();
             s1.material.specular_material = Vec3(0.2, 0.2, 0.2);
             s1.material.shininess = 20;
             s1.material.image_id = 0;
@@ -339,8 +413,7 @@ public:
         {
             lights.resize(lights.size() + 1);
             Light &light = lights[lights.size() - 1];
-            light.pos = Vec3(-5, 5, 5);
-            light.radius = 2.5f;
+            light.sphere = Sphere(Vec3(-5, 5, 5), 2.5f);
             light.powerCorrection = 2.f;
             light.type = LightType_Spherical;
             light.material = Vec3(1, 1, 1);
@@ -367,6 +440,12 @@ public:
         lights.clear();
         images.clear();
 
+        {
+            images.resize(images.size() + 1);
+            ppmLoader::ImageRGB &image = images[images.size() - 1];
+            ppmLoader::load_ppm(image, "img/test/128.ppm");
+        }
+
         // { // Light quad
         //     squares.resize(squares.size() + 1);
         //     Square &s = squares[squares.size() - 1];
@@ -380,11 +459,10 @@ public:
         { // Light
             lights.resize(lights.size() + 1);
             Light &light = lights[lights.size() - 1];
-            light.pos = Vec3(0.0, 1.5, 0.0);
-            light.radius = 2.5f;
+            light.sphere = Sphere(Vec3(0.0, 1.5, 0.0), 2.5f);
             light.quad = Square(Vec3(-2, 1.5, -2), Vec3(1., 0, 0.), Vec3(0., 0., 1.), 4, 4);
-            light.powerCorrection = 2.f;
             light.type = LightType_Quad;
+            light.powerCorrection = 2.f;
             light.material = Vec3(1, 1, 1);
             light.isInCamSpace = false;
         }
@@ -396,13 +474,13 @@ public:
             s.scale(Vec3(2., 2., 1.));
             s.translate(Vec3(0., 0., -2.));
             s.build_arrays();
+            s.material.image_id = 0;
             s.material.diffuse_material = Vec3(1., 0., 1.);
             s.material.specular_material = Vec3(1., 0., 1.);
             s.material.shininess = 16;
         }
 
         { // Left Wall
-
             squares.resize(squares.size() + 1);
             Square &s = squares[squares.size() - 1];
             s.setQuad(Vec3(-1., -1., 0.), Vec3(1., 0, 0.), Vec3(0., 1, 0.), 2., 2.);
@@ -506,8 +584,7 @@ public:
         {
             lights.resize(lights.size() + 1);
             Light &light = lights[lights.size() - 1];
-            light.pos = Vec3(-5, 5, 5);
-            light.radius = 2.5f;
+            light.sphere = Sphere(Vec3(-5, 5, 5), 2.5f);
             light.powerCorrection = 2.f;
             light.type = LightType_Spherical;
             light.material = Vec3(1, 1, 1);
@@ -542,8 +619,7 @@ public:
         {
             lights.resize(lights.size() + 1);
             Light &light = lights[lights.size() - 1];
-            light.pos = Vec3(-5, 5, 5);
-            light.radius = 2.5f;
+            light.sphere = Sphere(Vec3(-5, 5, 5), 2.5f);
             light.powerCorrection = 2.f;
             light.type = LightType_Spherical;
             light.material = Vec3(1, 1, 1);
@@ -568,7 +644,7 @@ public:
         { // Glass sphere
             spheres.resize(spheres.size() + 1);
             Sphere &s = spheres[spheres.size() - 1];
-            s.m_center = Vec3(0., 0., 0.);
+            s.m_center = Vec3();
             s.m_radius = 0.75f;
             s.build_arrays();
             s.material.type = Material_Glass;

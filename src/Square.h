@@ -110,7 +110,7 @@ public:
         apply_transformation_matrix(z_rotation);
     }
 
-    RaySquareIntersection intersect(const Ray &ray) const {
+    RaySquareIntersection intersect(const Ray &ray, bool can_intersect_behind) const {
         RaySquareIntersection intersection = RaySquareIntersection();
 
         /*
@@ -130,7 +130,7 @@ public:
         const Vec3 &N = this->m_normal;
 
         // nous sommes derrière le carré donc pas d'intersection
-        if (material.type != Material_Glass && Vec3::dot(D, N) >= 0) {
+        if (!can_intersect_behind && material.type != Material_Glass && Vec3::dot(D, N) >= 0) {
             return intersection;
         }
 

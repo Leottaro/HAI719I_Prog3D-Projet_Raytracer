@@ -16,6 +16,7 @@ private:
 
 public:
     Vec3() { mVals[0] = mVals[1] = mVals[2] = 0.f; }
+    Vec3(float x) { mVals[0] = mVals[1] = mVals[2] = x; }
     Vec3(float x, float y, float z) {
         mVals[0] = x;
         mVals[1] = y;

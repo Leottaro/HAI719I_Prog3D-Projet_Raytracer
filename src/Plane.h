@@ -32,7 +32,7 @@ public:
     }
     Vec3 getIntersectionPoint(Line const &L, float &t) const {
         if (isParallelTo(L)) {
-            return Vec3(0, 0, 0);
+            return Vec3();
         }
         const Vec3 &O = L.origin();
         const Vec3 &D = L.direction();

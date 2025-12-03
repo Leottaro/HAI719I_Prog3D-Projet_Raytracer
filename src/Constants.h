@@ -8,14 +8,14 @@
 namespace constants {
 
 namespace general {
-constexpr unsigned int NSAMPLES = 16;              // 16 default
+constexpr unsigned int NSAMPLES = 32;              // 16 default
 constexpr char MESH_PATH[] = "data/nefertiti.off"; // "data/nefertiti.off" default
 constexpr int MAX_BOUNCES = 10;                    // 10 default
 } // namespace general
 
 namespace phong {
-constexpr bool ENABLED = false;          // true default
-constexpr unsigned int SHADOW_RAYS = 16; // 16 default, 1 for hard shadows. Need PHONG enabled.
+constexpr bool ENABLED = true;           // true default
+constexpr unsigned int SHADOW_RAYS = 32; // 16 default, 1 for hard shadows. Need PHONG enabled.
 } // namespace phong
 
 namespace materials {

@@ -54,7 +54,7 @@ public:
             for (unsigned int phiIt = 0; phiIt < nPhi; ++phiIt) {
                 unsigned int vertexIndex = thetaIt + phiIt * nTheta;
                 float v = (float)(phiIt) / (float)(nPhi - 1);
-                float phi = -M_PI / 2.0 + v * M_PI;
+                float phi = v * M_PI;
                 Vec3 xyz = SphericalCoordinatesToEuclidean(theta, phi);
                 positions_array[3 * vertexIndex + 0] = m_center[0] + m_radius * xyz[0];
                 positions_array[3 * vertexIndex + 1] = m_center[1] + m_radius * xyz[1];

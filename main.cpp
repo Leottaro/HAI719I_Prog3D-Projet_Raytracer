@@ -165,13 +165,19 @@ void ray_trace_from_camera() {
     camera.apply();
     Vec3 pos, dir;
     vector<Vec3> image(w * h, Vec3(0, 0, 0));
+
     int n_pixels = h * w;
     auto begin = chrono::high_resolution_clock::now();
+
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             int pixel_i = y * w + x + 1;
-            float percent = 100.0f * (float)pixel_i / n_pixels;
-            cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << percent << "% completed)" << flush;
+
+            float percent = (float)pixel_i / n_pixels;
+            int64_t currently_elapsed = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - begin).count();
+            float remaining_ms = (currently_elapsed / percent) * (1. - percent);
+
+            cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << 100.f * percent << "% completed) ~" << remaining_ms / 1000. << "s remaining     " << flush;
             for (unsigned int s = 0; s < constants::general::NSAMPLES; ++s) {
                 float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / w;
                 float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / h;

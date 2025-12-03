@@ -98,8 +98,8 @@ protected:
     }
     void build_kd_tree() {
         vector<KdTriangle> passed_triangles(this->triangles.size());
-        Vec3 min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-        Vec3 max = Vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+        Vec3 min = Vec3(FLT_MAX);
+        Vec3 max = Vec3(-FLT_MAX);
 
         for (size_t i = 0; i < this->triangles.size(); i++) {
             KdTriangle kd_triangle = KdTriangle(this->vertices[this->triangles[i][0]].position,

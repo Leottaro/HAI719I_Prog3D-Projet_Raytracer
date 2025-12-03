@@ -45,7 +45,7 @@ void Mesh::loadOFF(const string &filename) {
 
 void Mesh::recomputeNormals() {
     for (unsigned int i = 0; i < vertices.size(); i++)
-        vertices[i].normal = Vec3(0.0, 0.0, 0.0);
+        vertices[i].normal = Vec3();
     for (unsigned int i = 0; i < triangles.size(); i++) {
         Vec3 e01 = vertices[triangles[i].v[1]].position - vertices[triangles[i].v[0]].position;
         Vec3 e02 = vertices[triangles[i].v[2]].position - vertices[triangles[i].v[0]].position;
