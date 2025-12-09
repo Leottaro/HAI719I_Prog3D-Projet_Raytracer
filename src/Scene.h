@@ -238,7 +238,7 @@ private:
     Vec3 phong(Ray const &ray, RaySceneIntersection const &intersection, int max_t, int NRemainingBounces) {
         const Material &material = intersection.material;
         const Vec3 &P = intersection.intersection;
-        const Vec3 kd = material.image_id == -1 ? material.diffuse_material : images[material.image_id].getPixel(intersection.u, intersection.v);
+        const Vec3 kd = material.image_id == -1 || images[material.image_id].data.empty() ? material.diffuse_material : images[material.image_id].getPixel(intersection.u, intersection.v);
 
         if (!constants::phong::ENABLED) {
             return kd;
@@ -277,8 +277,8 @@ private:
 
             float RdotV = Vec3::dot(R, V);
             Ia += ka * ia;
-            Id += LdotN > 0.00001 ? (1. - shadow_index) * kd * LdotN * id : Vec3();
-            Is += RdotV > 0.00001 ? (1. - shadow_index) * ks * pow(RdotV, alpha) * is : Vec3();
+            Id += LdotN > constants::general::EPSILON ? (1. - shadow_index) * kd * LdotN * id : Vec3();
+            Is += RdotV > constants::general::EPSILON ? (1. - shadow_index) * ks * pow(RdotV, alpha) * is : Vec3();
         }
         return Ia + Id + Is;
     }
@@ -313,12 +313,12 @@ public:
 
         if (constants::materials::ENABLE_GLASS && material.type == Material_Glass && NRemainingBounces > 0) {
             Ray refraction = computeRefractionRay(ray, raySceneIntersection);
-            I = rayTraceRecursive(refraction, 0.00001, max_t, NRemainingBounces - 1);
+            I = rayTraceRecursive(refraction, constants::general::EPSILON, max_t, NRemainingBounces - 1);
         }
 
         if (constants::materials::ENABLE_MIRROR && material.type == Material_Mirror && NRemainingBounces > 0) {
             Ray reflection = computeReflectionRay(ray, raySceneIntersection);
-            I = rayTraceRecursive(reflection, 0.00001, max_t, NRemainingBounces - 1);
+            I = rayTraceRecursive(reflection, constants::general::EPSILON, max_t, NRemainingBounces - 1);
         }
 
         I[0] = min(max(0.f, I[0]), 1.f);
@@ -328,7 +328,7 @@ public:
         return I;
     }
 
-    Vec3 rayTrace(Ray const &rayStart, float min_t = 0.00001, float max_t = FLT_MAX) {
+    Vec3 rayTrace(Ray const &rayStart, float min_t = constants::general::EPSILON, float max_t = FLT_MAX) {
         Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, constants::general::MAX_BOUNCES);
         return color;
     }
@@ -582,6 +582,12 @@ public:
         images.clear();
 
         {
+            images.resize(images.size() + 1);
+            ppmLoader::ImageRGB &image = images[images.size() - 1];
+            ppmLoader::load_ppm(image, "img/test/128.ppm");
+        }
+
+        {
             lights.resize(lights.size() + 1);
             Light &light = lights[lights.size() - 1];
             light.sphere = Sphere(Vec3(-5, 5, 5), 2.5f);
@@ -590,16 +596,32 @@ public:
             light.material = Vec3(1, 1, 1);
             light.isInCamSpace = false;
         }
+
         {
             meshes.resize(meshes.size() + 1);
             Mesh &mesh = meshes[meshes.size() - 1];
-            mesh.loadOFF(constants::general::MESH_PATH);
-            mesh.scale(Vec3(2., 2., 2.));
+            mesh.loadOFF(constants::scenes::MESH_PATH);
+            mesh.rotate_x(-90);
+            mesh.rotate_z(45);
+            mesh.scale(Vec3(5., 5., 5.));
             mesh.build_arrays();
             mesh.material.type = Material_DiffUSE_PHONG;
             mesh.material.diffuse_material = Vec3(1., 0., 0.);
             mesh.material.specular_material = Vec3(0.2, 0.2, 0.2);
             mesh.material.shininess = 20;
+        }
+
+        { // Back wall
+            squares.resize(squares.size() + 1);
+            Square &s = squares[squares.size() - 1];
+            s.setQuad(Vec3(-1., -1., 0.), Vec3(1., 0, 0.), Vec3(0., 1, 0.), 2., 2.);
+            s.scale(Vec3(10., 10., 1.));
+            s.translate(Vec3(0., 0., -5));
+            s.build_arrays();
+            s.material.diffuse_material = Vec3(1., 1., 0.);
+            s.material.specular_material = Vec3(1., 1., 0.);
+            s.material.shininess = 16;
+            s.material.image_id = 0;
         }
     }
 

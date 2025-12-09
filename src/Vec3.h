@@ -1,6 +1,7 @@
 #ifndef VEC3_H
 #define VEC3_H
 
+#include "Constants.h"
 #include <cmath>
 #include <iostream>
 
@@ -124,7 +125,7 @@ static inline istream &operator>>(istream &s, Vec3 &p) {
     return s;
 }
 static inline bool operator==(Vec3 const &a, Vec3 const &b) {
-    return fabs(a[0] - b[0]) <= 0.00001 && fabs(a[1] - b[1]) <= 0.00001 && fabs(a[2] - b[2]) <= 0.00001;
+    return fabs(a[0] - b[0]) <= constants::general::EPSILON && fabs(a[1] - b[1]) <= constants::general::EPSILON && fabs(a[2] - b[2]) <= constants::general::EPSILON;
 }
 static inline bool operator!=(Vec3 const &a, Vec3 const &b) {
     return !(a == b);

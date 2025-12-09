@@ -9,6 +9,7 @@
 #include <GL/glut.h>
 #include <algorithm>
 #include <cassert>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -24,15 +25,15 @@ public:
     KdTriangle(Vec3 v0, Vec3 v1, Vec3 v2, size_t index) : v0(v0), v1(v1), v2(v2), triangle_index(index), centroid((v0 + v1 + v2) / 3.) {}
 
     bool isBefore(size_t axis, float pos) const {
-        return v0[axis] - 0.00001 <= pos ||
-               v1[axis] - 0.00001 <= pos ||
-               v2[axis] - 0.00001 <= pos;
+        return v0[axis] - constants::kdtree::EPSILON <= pos ||
+               v1[axis] - constants::kdtree::EPSILON <= pos ||
+               v2[axis] - constants::kdtree::EPSILON <= pos;
     }
 
     bool isAfter(size_t axis, float pos) const {
-        return v0[axis] + 0.00001 >= pos ||
-               v1[axis] + 0.00001 >= pos ||
-               v2[axis] + 0.00001 >= pos;
+        return v0[axis] + constants::kdtree::EPSILON >= pos ||
+               v1[axis] + constants::kdtree::EPSILON >= pos ||
+               v2[axis] + constants::kdtree::EPSILON >= pos;
     }
 };
 
@@ -48,28 +49,41 @@ public:
     BoundingBox(Vec3 const &min, Vec3 const &max) : min(min), max(max) {}
 
     bool isInside(Vec3 const &v) const {
-        return min[0] - 0.00001 < v[0] && min[1] - 0.00001 < v[1] && min[2] - 0.00001 < v[2] &&
-               max[0] + 0.00001 > v[0] && max[1] + 0.00001 > v[1] && max[2] + 0.00001 > v[2];
+        return min[0] - constants::kdtree::EPSILON < v[0] && min[1] - constants::kdtree::EPSILON < v[1] && min[2] - constants::kdtree::EPSILON < v[2] &&
+               max[0] + constants::kdtree::EPSILON > v[0] && max[1] + constants::kdtree::EPSILON > v[1] && max[2] + constants::kdtree::EPSILON > v[2];
     }
 
-    bool intersect(Line const &line, float &min_t) const {
-        vector<Plane> planes = {
-            Plane(max, Vec3(1., 0., 0.)),
-            Plane(max, Vec3(0., 1., 0.)),
-            Plane(max, Vec3(0., 0., 1.)),
-        };
-        min_t = FLT_MAX;
-        for (size_t i = 0; i < 3; i++) {
-            if (planes[i].isParallelTo(line)) {
-                continue;
-            }
-            float t = 0.;
-            planes[i].getIntersectionPoint(line, t);
-            if (t < min_t) {
-                min_t = t;
-            }
-        }
-        return min_t != FLT_MAX;
+    bool intersect(const Ray &ray, float &tmin, float &tmax) const {
+        // https://www.rose-hulman.edu/class/cs/csse451/AABB/#:~:text=Axis%2DAligned%20Bounding%20Boxes%20(AABBs,bound%20and%20a%20maximum%20bound.
+        Vec3 const &origin = ray.origin();
+        Vec3 const &direction = ray.direction();
+
+        tmin = (min[0] - origin[0]) / direction[0];
+        tmax = (max[0] - origin[0]) / direction[0];
+        if (tmin > tmax)
+            std::swap(tmin, tmax);
+
+        float tymin = (min[1] - origin[1]) / direction[1];
+        float tymax = (max[1] - origin[1]) / direction[1];
+        if (tymin > tymax)
+            std::swap(tymin, tymax);
+
+        if ((tmin - constants::kdtree::EPSILON > tymax) || (tymin - constants::kdtree::EPSILON > tmax))
+            return false;
+        tmin = std::max(tmin, tymin);
+        tmax = std::min(tmax, tymax);
+
+        float tzmin = (min[2] - origin[2]) / direction[2];
+        float tzmax = (max[2] - origin[2]) / direction[2];
+        if (tzmin > tzmax)
+            std::swap(tzmin, tzmax);
+
+        if ((tmin - constants::kdtree::EPSILON > tzmax) || (tzmin - constants::kdtree::EPSILON > tmax))
+            return false;
+        tmin = std::max(tmin, tzmin);
+        tmax = std::min(tmax, tzmax);
+
+        return true;
     }
 };
 
@@ -87,8 +101,8 @@ protected:
     bool is_leaf;
     vector<KdTriangle> kd_triangles;
 
-    KdTree *left = nullptr;
-    KdTree *right = nullptr;
+    std::unique_ptr<KdTree> left = nullptr;
+    std::unique_ptr<KdTree> right = nullptr;
 
 public:
     KdTree(vector<KdTriangle> kd_triangles, BoundingBox bounding_box, unsigned short split_axis) {
@@ -149,31 +163,16 @@ public:
 
         size_t new_split_axis = (split_axis + 1) % 3;
         if (!left_triangles.empty()) {
-            this->left = new KdTree(left_triangles, left_bounding_box, new_split_axis);
+            this->left = make_unique<KdTree>(left_triangles, left_bounding_box, new_split_axis);
         }
         if (!right_triangles.empty()) {
-            this->right = new KdTree(right_triangles, right_bounding_box, new_split_axis);
+            this->right = make_unique<KdTree>(right_triangles, right_bounding_box, new_split_axis);
         }
     }
 
-    // ~KdTree() {
-    //     if (this->is_leaf) {
-    //         return;
-    //     }
-
-    //     if (this->left != nullptr) {
-    //         delete this->left;
-    //         this->left = nullptr;
-    //     }
-    //     if (this->right != nullptr) {
-    //         delete this->right;
-    //         this->right = nullptr;
-    //     }
-    // }
-
     bool intersect(Ray const &ray, KdTriangle &res) const {
-        float t = 0;
-        if (!this->bounding_box.intersect(ray, t)) {
+        float tmin = 0., tmax = 0.;
+        if (!this->bounding_box.intersect(ray, tmin, tmax)) {
             return false;
         }
 
@@ -204,18 +203,19 @@ public:
 
     bool intersect_nonleaf(Ray const &ray, KdTriangle &res) const {
         KdTree *first = nullptr, *second = nullptr;
-        float t_first = FLT_MAX, t_second = FLT_MAX;
+        float t_first_min = FLT_MAX, t_first_max = FLT_MAX;
+        float t_second_min = FLT_MAX, t_second_max = FLT_MAX;
 
-        // Calculate distances to child bounding boxes
-        if (this->left && this->left->bounding_box.intersect(ray, t_first)) {
-            first = this->left;
+        // Check intersection with child bounding boxes
+        if (this->left && this->left->bounding_box.intersect(ray, t_first_min, t_first_max)) {
+            first = this->left.get();
         }
-        if (this->right && this->right->bounding_box.intersect(ray, t_second)) {
-            second = this->right;
+        if (this->right && this->right->bounding_box.intersect(ray, t_second_min, t_second_max)) {
+            second = this->right.get();
         }
 
-        // Order children based on distance
-        if (t_first > t_second) {
+        // Determine traversal order
+        if (t_first_min > t_second_min) {
             std::swap(first, second);
         }
 

@@ -31,7 +31,6 @@
 #include <vector>
 
 using namespace std;
-using namespace constants;
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
@@ -320,7 +319,7 @@ int main(int argc, char **argv) {
     cout << "Constants :" << endl
          << "\tgeneral :" << endl
          << "\t\tNSAMPLES: " << constants::general::NSAMPLES << endl
-         << "\t\tMESH_PATH: " << constants::general::MESH_PATH << endl
+         << "\t\tMESH_PATH: " << constants::scenes::MESH_PATH << endl
          << "\tphong :" << endl
          << "\t\tENABLED: " << constants::phong::ENABLED << endl
          << "\t\tSHADOW_RAYS: " << constants::phong::SHADOW_RAYS << endl

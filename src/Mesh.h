@@ -9,6 +9,7 @@
 #include "Vec3.h"
 #include <GL/glut.h>
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -117,7 +118,7 @@ protected:
             passed_triangles[i] = kd_triangle;
         }
 
-        this->kdtree = new KdTree(passed_triangles, BoundingBox(min, max), (max - min).getMaxAbsoluteComponent());
+        this->kdtree = make_unique<KdTree>(passed_triangles, BoundingBox(min, max), (max - min).getMaxAbsoluteComponent());
     }
 
 public:
@@ -130,11 +131,7 @@ public:
     vector<unsigned int> triangles_array;
 
     Material material;
-    KdTree *kdtree;
-
-    // ~Mesh() {
-    //     delete kdtree;
-    // }
+    std::unique_ptr<KdTree> kdtree = nullptr;
 
     void loadOFF(const string &filename);
     void recomputeNormals();
@@ -147,7 +144,9 @@ public:
         build_normals_array();
         build_UVs_array();
         build_triangles_array();
-        build_kd_tree();
+        if (constants::kdtree::MAX_LEAF_SIZE > 0) {
+            build_kd_tree();
+        }
     }
 
     void translate(Vec3 const &translation) {
