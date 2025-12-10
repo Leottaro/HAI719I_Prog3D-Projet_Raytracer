@@ -226,7 +226,7 @@ private:
                     sampled_pos = light.quad.m_bottom_left + u * light.quad.m_up_vector + r * light.quad.m_right_vector;
                 }
             }
-            Ray shadow_ray = Ray(intersection.intersection, sampled_pos - intersection.intersection, ray.index_mediums, ray.object_types, ray.object_indices);
+            Ray shadow_ray = Ray(sampled_pos, intersection.intersection - sampled_pos, ray.index_mediums, ray.object_types, ray.object_indices);
             RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, 0.00001, max_t, true);
             if (shadow_intersection.intersectionExists && shadow_intersection.typeOfIntersectedObject != LightIntersection) {
                 shadow_count++;
@@ -601,9 +601,9 @@ public:
             meshes.resize(meshes.size() + 1);
             Mesh &mesh = meshes[meshes.size() - 1];
             mesh.loadOFF(constants::scenes::MESH_PATH);
-            mesh.rotate_x(-90);
-            mesh.rotate_z(45);
-            mesh.scale(Vec3(5., 5., 5.));
+            // mesh.rotate_x(-90);
+            // mesh.rotate_z(45);
+            mesh.scale(Vec3(2.));
             mesh.build_arrays();
             mesh.material.type = Material_DiffUSE_PHONG;
             mesh.material.diffuse_material = Vec3(1., 0., 0.);

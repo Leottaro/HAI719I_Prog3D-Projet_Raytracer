@@ -29,7 +29,7 @@ constexpr unsigned int MAX_LEAF_SIZE = 32; // 32 default, 0 to disable the kdtre
 } // namespace kdtree
 
 namespace scenes {
-constexpr char MESH_PATH[] = "data/female01.off"; // "data/nefertiti.off" default
+constexpr char MESH_PATH[] = "data/nefertiti.off"; // "data/nefertiti.off" default
 } // namespace scenes
 
 } // namespace constants

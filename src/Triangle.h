@@ -62,26 +62,16 @@ public:
         return Plane(m_c[0], m_normal).getIntersectionPoint(L, t);
     }
 
+    static float computeArea(Vec3 const &p0, Vec3 const &p1, Vec3 const &p2) {
+        Vec3 crossProduct = Vec3::cross(p1 - p0, p2 - p0);
+        return 0.5f * crossProduct.length();
+    }
+
     void computeBarycentricCoordinates(Vec3 const &p, float &u0, float &u1, float &u2) const {
-        Vec3 v0 = m_c[1] - m_c[0];
-        Vec3 v1 = m_c[2] - m_c[0];
-        Vec3 v2 = p - m_c[0];
-
-        float d00 = Vec3::dot(v0, v0);
-        float d01 = Vec3::dot(v0, v1);
-        float d11 = Vec3::dot(v1, v1);
-        float d20 = Vec3::dot(v2, v0);
-        float d21 = Vec3::dot(v2, v1);
-
-        float denom = d00 * d11 - d01 * d01;
-        if (fabs(denom) < constants::general::EPSILON) {
-            u0 = u1 = u2 = -1.f;
-            return;
-        }
-
-        u1 = (d11 * d20 - d01 * d21) / denom;
-        u2 = (d00 * d21 - d01 * d20) / denom;
-        u0 = 1.0f - constants::general::EPSILON - u1 - u2;
+        float global_area = Triangle::computeArea(m_c[0], m_c[1], m_c[2]);
+        u0 = Triangle::computeArea(p, m_c[1], m_c[2]) / global_area - constants::general::EPSILON;
+        u1 = Triangle::computeArea(m_c[0], p, m_c[2]) / global_area - constants::general::EPSILON;
+        u2 = Triangle::computeArea(m_c[0], m_c[1], p) / global_area - constants::general::EPSILON;
     }
 
     RayTriangleIntersection getIntersection(Ray const &ray) const {
