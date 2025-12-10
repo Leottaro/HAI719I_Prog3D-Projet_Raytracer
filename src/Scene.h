@@ -103,6 +103,7 @@ public:
 };
 
 class Scene {
+public:
     vector<Mesh> meshes;
     vector<Sphere> spheres;
     vector<Square> squares;
@@ -286,22 +287,6 @@ private:
 public:
     Scene() {}
 
-    void draw() {
-        // iterer sur l'ensemble des objets, et faire leur rendu :
-        for (unsigned int It = 0; It < meshes.size(); ++It) {
-            Mesh const &mesh = meshes[It];
-            mesh.draw();
-        }
-        for (unsigned int It = 0; It < spheres.size(); ++It) {
-            Sphere const &sphere = spheres[It];
-            sphere.draw();
-        }
-        for (unsigned int It = 0; It < squares.size(); ++It) {
-            Square const &square = squares[It];
-            square.draw();
-        }
-    }
-
     Vec3 rayTraceRecursive(Ray ray, float min_t, float max_t, int NRemainingBounces) {
         RaySceneIntersection raySceneIntersection = computeIntersection(ray, min_t, max_t, false);
         if (!raySceneIntersection.intersectionExists) {
@@ -343,7 +328,7 @@ public:
         {
             images.resize(images.size() + 1);
             ppmLoader::ImageRGB &image = images[images.size() - 1];
-            ppmLoader::load_ppm(image, "img/sphereTextures/s1.ppm");
+            ppmLoader::load_ppm(image, "ressources/img/sphereTextures/s1.ppm");
         }
 
         {
@@ -443,7 +428,7 @@ public:
         {
             images.resize(images.size() + 1);
             ppmLoader::ImageRGB &image = images[images.size() - 1];
-            ppmLoader::load_ppm(image, "img/test/128.ppm");
+            ppmLoader::load_ppm(image, "ressources/img/test/128.ppm");
         }
 
         // { // Light quad
@@ -584,7 +569,7 @@ public:
         {
             images.resize(images.size() + 1);
             ppmLoader::ImageRGB &image = images[images.size() - 1];
-            ppmLoader::load_ppm(image, "img/test/128.ppm");
+            ppmLoader::load_ppm(image, "ressources/img/test/128.ppm");
         }
 
         {
@@ -635,7 +620,7 @@ public:
         {
             images.resize(images.size() + 1);
             ppmLoader::ImageRGB &image = images[images.size() - 1];
-            ppmLoader::load_ppm(image, "img/test/1024.ppm");
+            ppmLoader::load_ppm(image, "ressources/img/test/1024.ppm");
         }
 
         {

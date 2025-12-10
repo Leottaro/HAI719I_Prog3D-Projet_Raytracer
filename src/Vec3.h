@@ -31,6 +31,9 @@ public:
         mVals[2] = other[2];
         return *this;
     }
+    float *valuePtr() { return mVals; }
+    const float *valuePtr() const { return mVals; }
+
     float squareLength() const {
         return mVals[0] * mVals[0] + mVals[1] * mVals[1] + mVals[2] * mVals[2];
     }

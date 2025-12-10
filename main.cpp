@@ -16,6 +16,7 @@
 
 #include "src/Camera.h"
 #include "src/Constants.h"
+#include "src/Renderer.h"
 #include "src/Scene.h"
 #include "src/Vec3.h"
 #include "src/matrixUtilities.h"
@@ -47,8 +48,8 @@ static int lastX = 0, lastY = 0, lastZoom = 0;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
 
-vector<Scene> scenes;
-unsigned int selected_scene;
+vector<Renderer> renderers;
+unsigned int selected_renderer;
 
 vector<pair<Vec3, Vec3>> rays;
 
@@ -117,7 +118,7 @@ void clear() {
 
 void draw() {
     glEnable(GL_LIGHTING);
-    scenes[selected_scene].draw();
+    renderers[selected_renderer].draw();
 
     // draw rays : (for debug)
     //  cout << rays.size() << endl;
@@ -158,51 +159,16 @@ void idle() {
     glutPostRedisplay();
 }
 
-void ray_trace_from_camera() {
-    int w = glutGet(GLUT_WINDOW_WIDTH), h = glutGet(GLUT_WINDOW_HEIGHT);
-    cout << "Ray tracing a " << w << " x " << h << "image :" << endl;
-    camera.apply();
-    Vec3 pos, dir;
-    vector<Vec3> image(w * h, Vec3(0, 0, 0));
-
-    int n_pixels = h * w;
-    auto begin = chrono::high_resolution_clock::now();
-
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int pixel_i = y * w + x + 1;
-
-            float percent = (float)pixel_i / n_pixels;
-            int64_t currently_elapsed = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - begin).count();
-            float remaining_ms = (currently_elapsed / percent) * (1. - percent);
-
-            cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << 100.f * percent << "% completed) ~" << remaining_ms / 1000. << "s remaining     " << flush;
-            for (unsigned int s = 0; s < constants::general::NSAMPLES; ++s) {
-                float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / w;
-                float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / h;
-                // this is a random uv that belongs to the pixel xy.
-                screen_space_to_world_space_ray(u, v, pos, dir);
-                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir), 0., camera.getFarPlane());
-                image[x + y * w] += color;
-            }
-            image[x + y * w] /= (float)constants::general::NSAMPLES;
-        }
-    }
-    auto end = chrono::high_resolution_clock::now();
-    auto elapsed = chrono::duration_cast<chrono::seconds>(end - begin).count();
-    cout << endl
-         << "\tDone in " << elapsed << " seconds." << endl;
-
-    string filename = "./rendu.ppm";
+void writePPM(vector<Vec3> image, string filename, int width, int height) {
     ofstream f(filename.c_str(), ios::binary);
     if (f.fail()) {
         cout << "Could not open file: " << filename << endl;
         return;
     }
     f << "P3" << endl
-      << w << " " << h << endl
+      << width << " " << height << endl
       << 255 << endl;
-    for (int i = 0; i < w * h; i++)
+    for (int i = 0; i < width * height; i++)
         f << (int)(255.f * min<float>(1.f, image[i][0])) << " " << (int)(255.f * min<float>(1.f, image[i][1])) << " " << (int)(255.f * min<float>(1.f, image[i][2])) << " ";
     f << endl;
     f.close();
@@ -210,6 +176,8 @@ void ray_trace_from_camera() {
 
 void key(unsigned char keyPressed, int x, int y) {
     Vec3 pos, dir;
+    int width = glutGet(GLUT_WINDOW_WIDTH);
+    int height = glutGet(GLUT_WINDOW_HEIGHT);
     switch (keyPressed) {
     case 'f':
         if (fullScreen == true) {
@@ -237,12 +205,22 @@ void key(unsigned char keyPressed, int x, int y) {
     case 'r':
         camera.apply();
         rays.clear();
-        ray_trace_from_camera();
+        writePPM(
+            renderers[selected_renderer].rayTraceFromCameraCPU(width, height, camera.getFarPlane()),
+            "rendu.ppm",
+            width,
+            height);
+
+        writePPM(
+            renderers[selected_renderer].rayTraceFromCameraGPU(width, height, camera.getFarPlane()),
+            "renduGPU.ppm",
+            width,
+            height);
         break;
     case '+':
-        selected_scene++;
-        if (selected_scene >= scenes.size())
-            selected_scene = 0;
+        selected_renderer++;
+        if (selected_renderer >= renderers.size())
+            selected_renderer = 0;
         break;
     default:
         printUsage();
@@ -332,13 +310,13 @@ int main(int argc, char **argv) {
          << endl;
 
     camera.move(0., 0., -3.1);
-    selected_scene = 0;
-    scenes.resize(5);
-    scenes[0].setup_single_sphere();
-    scenes[1].setup_single_square();
-    scenes[2].setup_cornell_box();
-    scenes[3].setup_single_mesh();
-    scenes[4].setup_refraction_test();
+    selected_renderer = 0;
+    renderers.resize(5);
+    renderers[0].setup_single_sphere();
+    renderers[1].setup_single_square();
+    renderers[2].setup_cornell_box();
+    renderers[3].setup_single_mesh();
+    renderers[4].setup_refraction_test();
 
     glutMainLoop();
     return EXIT_SUCCESS;
