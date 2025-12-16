@@ -23,12 +23,12 @@ public:
 
     Square() : Mesh() {}
     Square(Vec3 const &bottomLeft, Vec3 const &rightVector, Vec3 const &upVector, float width = 1., float height = 1.,
-           float uMin = constants::general::EPSILON, float uMax = 1.f, float vMin = constants::general::EPSILON, float vMax = 1.f) : Mesh() {
+           float uMin = Settings::EPSILON, float uMax = 1.f, float vMin = Settings::EPSILON, float vMax = 1.f) : Mesh() {
         setQuad(bottomLeft, rightVector, upVector, width, height, uMin, uMax, vMin, vMax);
     }
 
     void setQuad(Vec3 const &bottomLeft, Vec3 const &rightVector, Vec3 const &upVector, float width = 1., float height = 1.,
-                 float uMin = constants::general::EPSILON, float uMax = 1.f, float vMin = constants::general::EPSILON, float vMax = 1.f) {
+                 float uMin = Settings::EPSILON, float uMax = 1.f, float vMin = Settings::EPSILON, float vMax = 1.f) {
         m_right_vector = rightVector;
         m_up_vector = upVector;
         m_normal = Vec3::cross(rightVector, upVector);
@@ -141,7 +141,7 @@ public:
         float u = Vec3::dot(PC, this->m_right_vector) / this->m_right_vector.squareNorm();
         float v = Vec3::dot(PC, this->m_up_vector) / this->m_up_vector.squareNorm();
 
-        if (constants::general::EPSILON <= u && u <= 1 && constants::general::EPSILON <= v && v <= 1) {
+        if (Settings::EPSILON <= u && u <= 1 && Settings::EPSILON <= v && v <= 1) {
             intersection.intersectionExists = true;
             intersection.t = t;
             intersection.u = u;

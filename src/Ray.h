@@ -1,7 +1,7 @@
 #ifndef RAY_H
 #define RAY_H
-#include "Constants.h"
 #include "Line.h"
+#include "Settings.h"
 
 class Ray : public Line {
 public:
@@ -9,7 +9,7 @@ public:
     vector<unsigned int> object_types;
     vector<unsigned int> object_indices;
     Ray() {}
-    Ray(Vec3 const &o, Vec3 const &d) : Line(o, d), index_mediums({constants::materials::AIR_INDEX_MEDIUM}), object_types({UINT32_MAX}), object_indices({UINT32_MAX}) {}
+    Ray(Vec3 const &o, Vec3 const &d) : Line(o, d), index_mediums({Settings::Material::AIR_INDEX_MEDIUM}), object_types({UINT32_MAX}), object_indices({UINT32_MAX}) {}
     Ray(Vec3 const &o, Vec3 const &d, vector<float> const &im, vector<unsigned int> const &ot, vector<unsigned int> const &oi) : Line(o, d) {
         vector<float> im_copy = im;
         vector<unsigned int> ot_copy = ot;

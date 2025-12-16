@@ -55,7 +55,7 @@ public:
                 float remaining_ms = (currently_elapsed / percent) * (1. - percent);
 
                 cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << 100.f * percent << "% completed) ~" << remaining_ms / 1000. << "s remaining     " << flush;
-                for (unsigned int s = 0; s < constants::general::NSAMPLES; ++s) {
+                for (unsigned int s = 0; s < Settings::NSAMPLES; ++s) {
                     float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / _width;
                     float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / _height;
                     // this is a random uv that belongs to the pixel xy.
@@ -63,7 +63,7 @@ public:
                     Vec3 color = rayTrace(Ray(pos, dir), 0., _max_t);
                     image[x + y * _width] += color;
                 }
-                image[x + y * _width] /= (float)constants::general::NSAMPLES;
+                image[x + y * _width] /= (float)Settings::NSAMPLES;
             }
         }
         auto end = chrono::high_resolution_clock::now();

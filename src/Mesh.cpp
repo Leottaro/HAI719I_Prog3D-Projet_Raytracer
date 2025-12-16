@@ -4,10 +4,10 @@
 
 using namespace std;
 
-void Mesh::loadOFF(const string &filename) {
+bool Mesh::loadOFF(const string &filename) {
     ifstream in(filename.c_str());
     if (!in)
-        exit(EXIT_FAILURE);
+        return false;
     string offString;
     unsigned int sizeV, sizeT, tmp;
     in >> offString >> sizeV >> sizeT >> tmp;
@@ -41,6 +41,8 @@ void Mesh::loadOFF(const string &filename) {
         // cout << endl;
     }
     in.close();
+    centerAndScaleToUnit();
+    return true;
 }
 
 void Mesh::recomputeNormals() {

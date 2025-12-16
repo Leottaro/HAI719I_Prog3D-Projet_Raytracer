@@ -1,9 +1,9 @@
 #ifndef KDTREE_H
 #define KDTREE_H
 
-#include "Constants.h"
 #include "Material.h"
 #include "Ray.h"
+#include "Settings.h"
 #include "Triangle.h"
 #include "Vec3.h"
 #include <GL/glut.h>
@@ -25,15 +25,15 @@ public:
     KdTriangle(Vec3 v0, Vec3 v1, Vec3 v2, size_t index) : v0(v0), v1(v1), v2(v2), triangle_index(index), centroid((v0 + v1 + v2) / 3.) {}
 
     bool isBefore(size_t axis, float pos) const {
-        return v0[axis] - constants::kdtree::EPSILON <= pos ||
-               v1[axis] - constants::kdtree::EPSILON <= pos ||
-               v2[axis] - constants::kdtree::EPSILON <= pos;
+        return v0[axis] - Settings::KdTree::EPSILON <= pos ||
+               v1[axis] - Settings::KdTree::EPSILON <= pos ||
+               v2[axis] - Settings::KdTree::EPSILON <= pos;
     }
 
     bool isAfter(size_t axis, float pos) const {
-        return v0[axis] + constants::kdtree::EPSILON >= pos ||
-               v1[axis] + constants::kdtree::EPSILON >= pos ||
-               v2[axis] + constants::kdtree::EPSILON >= pos;
+        return v0[axis] + Settings::KdTree::EPSILON >= pos ||
+               v1[axis] + Settings::KdTree::EPSILON >= pos ||
+               v2[axis] + Settings::KdTree::EPSILON >= pos;
     }
 };
 
@@ -49,8 +49,8 @@ public:
     BoundingBox(Vec3 const &min, Vec3 const &max) : min(min), max(max) {}
 
     bool isInside(Vec3 const &v) const {
-        return min[0] - constants::kdtree::EPSILON < v[0] && min[1] - constants::kdtree::EPSILON < v[1] && min[2] - constants::kdtree::EPSILON < v[2] &&
-               max[0] + constants::kdtree::EPSILON > v[0] && max[1] + constants::kdtree::EPSILON > v[1] && max[2] + constants::kdtree::EPSILON > v[2];
+        return min[0] - Settings::KdTree::EPSILON < v[0] && min[1] - Settings::KdTree::EPSILON < v[1] && min[2] - Settings::KdTree::EPSILON < v[2] &&
+               max[0] + Settings::KdTree::EPSILON > v[0] && max[1] + Settings::KdTree::EPSILON > v[1] && max[2] + Settings::KdTree::EPSILON > v[2];
     }
 
     bool intersect(const Ray &ray, float &tmin, float &tmax) const {
@@ -68,7 +68,7 @@ public:
         if (tymin > tymax)
             std::swap(tymin, tymax);
 
-        if ((tmin - constants::kdtree::EPSILON > tymax) || (tymin - constants::kdtree::EPSILON > tmax))
+        if ((tmin - Settings::KdTree::EPSILON > tymax) || (tymin - Settings::KdTree::EPSILON > tmax))
             return false;
         tmin = std::max(tmin, tymin);
         tmax = std::min(tmax, tymax);
@@ -78,7 +78,7 @@ public:
         if (tzmin > tzmax)
             std::swap(tzmin, tzmax);
 
-        if ((tmin - constants::kdtree::EPSILON > tzmax) || (tzmin - constants::kdtree::EPSILON > tmax))
+        if ((tmin - Settings::KdTree::EPSILON > tzmax) || (tzmin - Settings::KdTree::EPSILON > tmax))
             return false;
         tmin = std::max(tmin, tzmin);
         tmax = std::min(tmax, tzmax);
@@ -108,9 +108,9 @@ public:
     KdTree(vector<KdTriangle> kd_triangles, BoundingBox bounding_box, unsigned short split_axis) {
         this->bounding_box = bounding_box;
         this->split_axis = split_axis;
-        this->is_leaf = kd_triangles.size() <= constants::kdtree::MAX_LEAF_SIZE;
+        this->is_leaf = kd_triangles.size() <= Settings::KdTree::MAX_LEAF_SIZE;
 
-        assert(constants::kdtree::MAX_LEAF_SIZE > 0);
+        assert(Settings::KdTree::MAX_LEAF_SIZE > 0);
         assert(split_axis >= 0 && split_axis <= 2);
         assert(!kd_triangles.empty());
         for (const auto &triangle : kd_triangles) {

@@ -1,10 +1,10 @@
 #ifndef MESH_H
 #define MESH_H
 
-#include "Constants.h"
 #include "KdTree.h"
 #include "Material.h"
 #include "Ray.h"
+#include "Settings.h"
 #include "Triangle.h"
 #include "Vec3.h"
 #include <GL/glut.h>
@@ -133,7 +133,7 @@ public:
     Material material;
     std::unique_ptr<KdTree> kdtree = nullptr;
 
-    void loadOFF(const string &filename);
+    bool loadOFF(const string &filename);
     void recomputeNormals();
     void centerAndScaleToUnit();
     void scaleUnit();
@@ -144,7 +144,7 @@ public:
         build_normals_array();
         build_UVs_array();
         build_triangles_array();
-        if (constants::kdtree::MAX_LEAF_SIZE > 0) {
+        if (Settings::KdTree::MAX_LEAF_SIZE > 0) {
             build_kd_tree();
         }
     }
@@ -227,7 +227,7 @@ public:
     }
 
     RayTriangleIntersection intersect(Ray const &ray) const {
-        return constants::kdtree::MAX_LEAF_SIZE > 0 ? intersect_kdtree(ray) : intersect_no_kdtree(ray);
+        return Settings::KdTree::MAX_LEAF_SIZE > 0 ? intersect_kdtree(ray) : intersect_no_kdtree(ray);
     }
 
     RayTriangleIntersection intersect_no_kdtree(Ray const &ray) const {
@@ -247,11 +247,17 @@ public:
             Triangle triangle = Triangle(v0.position, v1.position, v2.position);
             RayTriangleIntersection intersection = triangle.getIntersection(ray);
             if (intersection.intersectionExists && intersection.t < closestIntersection.t) {
+                if (Settings::Mesh::ENABLE_INTERPOLATION) {
+                    intersection.normal = v0.normal * intersection.w0 + v1.normal * intersection.w1 + v2.normal * intersection.w2;
+                    intersection.u = v0.u * intersection.w0 + v1.u * intersection.w1 + v2.u * intersection.w2;
+                    intersection.v = v0.v * intersection.w0 + v1.v * intersection.w1 + v2.v * intersection.w2;
+                } else {
+                    intersection.normal = v0.normal;
+                    intersection.u = v0.u;
+                    intersection.v = v0.v;
+                }
                 intersection.tIndex = i;
-                intersection.normal = v0.normal * intersection.w0 + v1.normal * intersection.w1 + v2.normal * intersection.w2;
                 intersection.normal.normalize();
-                intersection.u = v0.u * intersection.w0 + v1.u * intersection.w1 + v2.u * intersection.w2;
-                intersection.v = v0.v * intersection.w0 + v1.v * intersection.w1 + v2.v * intersection.w2;
                 closestIntersection = intersection;
             }
         }
@@ -267,16 +273,23 @@ public:
 
         Triangle triangle = Triangle(kd_triangle.v0, kd_triangle.v1, kd_triangle.v2);
         MeshTriangle mesh_triangle = this->triangles[kd_triangle.triangle_index];
-        MeshVertex mesh_v0 = this->vertices[mesh_triangle[0]];
-        MeshVertex mesh_v1 = this->vertices[mesh_triangle[1]];
-        MeshVertex mesh_v2 = this->vertices[mesh_triangle[2]];
-
+        MeshVertex v0 = this->vertices[mesh_triangle[0]];
+        MeshVertex v1 = this->vertices[mesh_triangle[1]];
+        MeshVertex v2 = this->vertices[mesh_triangle[2]];
         RayTriangleIntersection intersection = triangle.getIntersection(ray);
+
+        if (Settings::Mesh::ENABLE_INTERPOLATION) {
+            intersection.normal = v0.normal * intersection.w0 + v1.normal * intersection.w1 + v2.normal * intersection.w2;
+            intersection.u = v0.u * intersection.w0 + v1.u * intersection.w1 + v2.u * intersection.w2;
+            intersection.v = v0.v * intersection.w0 + v1.v * intersection.w1 + v2.v * intersection.w2;
+        } else {
+            intersection.normal = v0.normal;
+            intersection.u = v0.u;
+            intersection.v = v0.v;
+        }
+
         intersection.tIndex = kd_triangle.triangle_index;
-        intersection.normal = mesh_v0.normal * intersection.w0 + mesh_v1.normal * intersection.w1 + mesh_v2.normal * intersection.w2;
         intersection.normal.normalize();
-        intersection.u = mesh_v0.u * intersection.w0 + mesh_v1.u * intersection.w1 + mesh_v2.u * intersection.w2;
-        intersection.v = mesh_v0.v * intersection.w0 + mesh_v1.v * intersection.w1 + mesh_v2.v * intersection.w2;
         return intersection;
     }
 };

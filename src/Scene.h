@@ -1,8 +1,8 @@
 #ifndef SCENE_H
 #define SCENE_H
 
-#include "Constants.h"
 #include "Mesh.h"
+#include "Settings.h"
 #include "Sphere.h"
 #include "Square.h"
 #include "imageLoader.h"
@@ -211,9 +211,9 @@ private:
 
     float computeShadowIndex(const Ray &ray, const RaySceneIntersection &intersection, const Light &light, int max_t) {
         int shadow_count = 0;
-        for (unsigned int i = 0; i < constants::phong::SHADOW_RAYS; i++) {
+        for (unsigned int i = 0; i < Settings::Phong::SHADOW_RAYS; i++) {
             Vec3 sampled_pos;
-            if (constants::phong::SHADOW_RAYS == 1) {
+            if (Settings::Phong::SHADOW_RAYS == 1) {
                 sampled_pos = light.getCentralPos();
             } else {
                 if (light.type == LightType_Spherical) {
@@ -227,21 +227,22 @@ private:
                     sampled_pos = light.quad.m_bottom_left + u * light.quad.m_up_vector + r * light.quad.m_right_vector;
                 }
             }
-            Ray shadow_ray = Ray(intersection.intersection, sampled_pos - intersection.intersection, ray.index_mediums, ray.object_types, ray.object_indices);
-            RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, 0.00001, max_t, true);
+            Vec3 direction = intersection.intersection - sampled_pos;
+            Ray shadow_ray = Ray(sampled_pos, direction, ray.index_mediums, ray.object_types, ray.object_indices);
+            RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, Settings::EPSILON, direction.length() - Settings::EPSILON, true);
             if (shadow_intersection.intersectionExists && shadow_intersection.typeOfIntersectedObject != LightIntersection) {
                 shadow_count++;
             }
         }
-        return (float)shadow_count / constants::phong::SHADOW_RAYS;
+        return (float)shadow_count / Settings::Phong::SHADOW_RAYS;
     }
 
     Vec3 phong(Ray const &ray, RaySceneIntersection const &intersection, int max_t, int NRemainingBounces) {
         const Material &material = intersection.material;
         const Vec3 &P = intersection.intersection;
-        const Vec3 kd = material.image_id == -1 || images[material.image_id].data.empty() ? material.diffuse_material : images[material.image_id].getPixel(intersection.u, intersection.v);
+        const Vec3 kd = Settings::Bonus::ENABLE_TEXTURES && material.image_id >= 0 && !images[material.image_id].data.empty() ? images[material.image_id].getPixel(intersection.u, intersection.v) : material.diffuse_material;
 
-        if (!constants::phong::ENABLED) {
+        if (!Settings::Phong::ENABLED) {
             return kd;
         }
 
@@ -270,7 +271,7 @@ private:
             Vec3 L = light_pos - P;
             L.normalize();
 
-            float shadow_index = constants::phong::SHADOW_RAYS > 0 ? computeShadowIndex(ray, intersection, light, max_t) : 0.;
+            float shadow_index = Settings::Phong::SHADOW_RAYS > 0 ? computeShadowIndex(ray, intersection, light, max_t) : 0.;
 
             float LdotN = Vec3::dot(L, N);
             Vec3 R = 2. * N * LdotN - L;
@@ -278,8 +279,8 @@ private:
 
             float RdotV = Vec3::dot(R, V);
             Ia += ka * ia;
-            Id += LdotN > constants::general::EPSILON ? (1. - shadow_index) * kd * LdotN * id : Vec3();
-            Is += RdotV > constants::general::EPSILON ? (1. - shadow_index) * ks * pow(RdotV, alpha) * is : Vec3();
+            Id += LdotN > Settings::EPSILON ? (1. - shadow_index) * kd * LdotN * id : Vec3();
+            Is += RdotV > Settings::EPSILON ? (1. - shadow_index) * ks * pow(RdotV, alpha) * is : Vec3();
         }
         return Ia + Id + Is;
     }
@@ -296,14 +297,14 @@ public:
         Material material = raySceneIntersection.material;
         Vec3 I = phong(ray, raySceneIntersection, max_t, NRemainingBounces);
 
-        if (constants::materials::ENABLE_GLASS && material.type == Material_Glass && NRemainingBounces > 0) {
+        if (Settings::Material::ENABLE_GLASS && material.type == Material_Glass && NRemainingBounces > 0) {
             Ray refraction = computeRefractionRay(ray, raySceneIntersection);
-            I = rayTraceRecursive(refraction, constants::general::EPSILON, max_t, NRemainingBounces - 1);
+            I = rayTraceRecursive(refraction, Settings::EPSILON, max_t, NRemainingBounces - 1);
         }
 
-        if (constants::materials::ENABLE_MIRROR && material.type == Material_Mirror && NRemainingBounces > 0) {
+        if (Settings::Material::ENABLE_MIRROR && material.type == Material_Mirror && NRemainingBounces > 0) {
             Ray reflection = computeReflectionRay(ray, raySceneIntersection);
-            I = rayTraceRecursive(reflection, constants::general::EPSILON, max_t, NRemainingBounces - 1);
+            I = rayTraceRecursive(reflection, Settings::EPSILON, max_t, NRemainingBounces - 1);
         }
 
         I[0] = min(max(0.f, I[0]), 1.f);
@@ -313,8 +314,8 @@ public:
         return I;
     }
 
-    Vec3 rayTrace(Ray const &rayStart, float min_t = constants::general::EPSILON, float max_t = FLT_MAX) {
-        Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, constants::general::MAX_BOUNCES);
+    Vec3 rayTrace(Ray const &rayStart, float min_t = Settings::EPSILON, float max_t = FLT_MAX) {
+        Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, Settings::MAX_BOUNCES);
         return color;
     }
 
@@ -585,10 +586,10 @@ public:
         {
             meshes.resize(meshes.size() + 1);
             Mesh &mesh = meshes[meshes.size() - 1];
-            mesh.loadOFF(constants::scenes::MESH_PATH);
-            mesh.rotate_x(-90);
-            mesh.rotate_z(45);
-            mesh.scale(Vec3(5., 5., 5.));
+            mesh.loadOFF(Settings::availableMeshToPath(Settings::Mesh::MESH));
+            // mesh.rotate_x(-90);
+            // mesh.rotate_z(45);
+            mesh.scale(Vec3(2.));
             mesh.build_arrays();
             mesh.material.type = Material_DiffUSE_PHONG;
             mesh.material.diffuse_material = Vec3(1., 0., 0.);
