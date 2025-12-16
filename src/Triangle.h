@@ -68,10 +68,9 @@ public:
     }
 
     void computeBarycentricCoordinates(Vec3 const &p, float &u0, float &u1, float &u2) const {
-        float global_area = Triangle::computeArea(m_c[0], m_c[1], m_c[2]);
-        u0 = Triangle::computeArea(p, m_c[1], m_c[2]) / global_area - constants::general::EPSILON;
-        u1 = Triangle::computeArea(m_c[0], p, m_c[2]) / global_area - constants::general::EPSILON;
-        u2 = Triangle::computeArea(m_c[0], m_c[1], p) / global_area - constants::general::EPSILON;
+        u0 = Triangle(p, m_c[1], m_c[2]).area / area - Settings::EPSILON;
+        u1 = Triangle(m_c[0], p, m_c[2]).area / area - Settings::EPSILON;
+        u2 = Triangle(m_c[0], m_c[1], p).area / area - Settings::EPSILON;
     }
 
     RayTriangleIntersection getIntersection(Ray const &ray) const {

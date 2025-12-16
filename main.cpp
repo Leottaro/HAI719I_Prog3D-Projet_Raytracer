@@ -15,8 +15,8 @@
 // -------------------------------------------
 
 #include "src/Camera.h"
-#include "src/Constants.h"
 #include "src/Scene.h"
+#include "src/Settings.h"
 #include "src/Vec3.h"
 #include "src/matrixUtilities.h"
 #include <GL/glut.h>
@@ -37,8 +37,6 @@ using namespace std;
 // -------------------------------------------
 
 static GLint window;
-static unsigned int SCREENWIDTH = 480;
-static unsigned int SCREENHEIGHT = 480;
 static Camera camera;
 static bool mouseRotatePressed = false;
 static bool mouseMovePressed = false;
@@ -48,7 +46,6 @@ static unsigned int FPS = 0;
 static bool fullScreen = false;
 
 vector<Scene> scenes;
-unsigned int selected_scene;
 
 vector<pair<Vec3, Vec3>> rays;
 
@@ -62,6 +59,8 @@ void printUsage() {
          << "Keyboard commands" << endl
          << "------------------" << endl
          << " ?: Print help" << endl
+         << " p: increase current preset" << endl
+         << " P: decrease current preset" << endl
          << " w: Toggle Wireframe Mode" << endl
          << " g: Toggle Gouraud Shading Mode" << endl
          << " f: Toggle full screen mode" << endl
@@ -91,9 +90,19 @@ void initLight() {
     glEnable(GL_LIGHTING);
 }
 
+void initScenes() {
+    scenes.resize(5);
+    scenes[0].setup_single_sphere();
+    scenes[1].setup_single_square();
+    scenes[2].setup_cornell_box();
+    scenes[3].setup_single_mesh();
+    scenes[4].setup_refraction_test();
+}
+
 void init() {
-    camera.resize(SCREENWIDTH, SCREENHEIGHT);
+    camera.resize(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT);
     initLight();
+    initScenes();
     // glCullFace (GL_BACK);
     glDisable(GL_CULL_FACE);
     glDepthFunc(GL_LESS);
@@ -117,7 +126,7 @@ void clear() {
 
 void draw() {
     glEnable(GL_LIGHTING);
-    scenes[selected_scene].draw();
+    scenes[Settings::selected_scene].draw();
 
     // draw rays : (for debug)
     //  cout << rays.size() << endl;
@@ -160,7 +169,7 @@ void idle() {
 
 void ray_trace_from_camera() {
     int w = glutGet(GLUT_WINDOW_WIDTH), h = glutGet(GLUT_WINDOW_HEIGHT);
-    cout << "Ray tracing a " << w << " x " << h << "image :" << endl;
+    cout << "Ray tracing a " << w << " x " << h << " image (" << Settings::selected_preset << "):" << endl;
     camera.apply();
     Vec3 pos, dir;
     vector<Vec3> image(w * h, Vec3(0, 0, 0));
@@ -177,15 +186,15 @@ void ray_trace_from_camera() {
             float remaining_ms = (currently_elapsed / percent) * (1. - percent);
 
             cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << 100.f * percent << "% completed) ~" << remaining_ms / 1000. << "s remaining     " << flush;
-            for (unsigned int s = 0; s < constants::general::NSAMPLES; ++s) {
+            for (unsigned int s = 0; s < Settings::NSAMPLES; ++s) {
                 float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / w;
                 float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / h;
                 // this is a random uv that belongs to the pixel xy.
                 screen_space_to_world_space_ray(u, v, pos, dir);
-                Vec3 color = scenes[selected_scene].rayTrace(Ray(pos, dir), 0., camera.getFarPlane());
+                Vec3 color = scenes[Settings::selected_scene].rayTrace(Ray(pos, dir), 0., camera.getFarPlane());
                 image[x + y * w] += color;
             }
-            image[x + y * w] /= (float)constants::general::NSAMPLES;
+            image[x + y * w] /= (float)Settings::NSAMPLES;
         }
     }
     auto end = chrono::high_resolution_clock::now();
@@ -213,7 +222,7 @@ void key(unsigned char keyPressed, int x, int y) {
     switch (keyPressed) {
     case 'f':
         if (fullScreen == true) {
-            glutReshapeWindow(SCREENWIDTH, SCREENHEIGHT);
+            glutReshapeWindow(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT);
             fullScreen = false;
         } else {
             glutFullScreen();
@@ -240,9 +249,19 @@ void key(unsigned char keyPressed, int x, int y) {
         ray_trace_from_camera();
         break;
     case '+':
-        selected_scene++;
-        if (selected_scene >= scenes.size())
-            selected_scene = 0;
+        Settings::selected_scene = (Settings::selected_scene + 1) % scenes.size();
+        break;
+    case 'p':
+        Settings::selected_preset = static_cast<Settings::Presets>((static_cast<int>(Settings::selected_preset) + 1) % Settings::NB_PRESETS);
+        Settings::applySelectedPreset();
+        init();
+        cout << "Settings preset set to: " << Settings::selected_preset << endl;
+        break;
+    case 'P':
+        Settings::selected_preset = static_cast<Settings::Presets>((static_cast<int>(Settings::selected_preset) - 1 + Settings::NB_PRESETS) % Settings::NB_PRESETS);
+        Settings::applySelectedPreset();
+        init();
+        cout << "Settings preset set to: " << Settings::selected_preset << endl;
         break;
     default:
         printUsage();
@@ -284,11 +303,11 @@ void motion(int x, int y) {
     if (mouseRotatePressed == true) {
         camera.rotate(x, y);
     } else if (mouseMovePressed == true) {
-        camera.move((x - lastX) / static_cast<float>(SCREENWIDTH), (lastY - y) / static_cast<float>(SCREENHEIGHT), 0.0);
+        camera.move((x - lastX) / static_cast<float>(Settings::SCREEN_WIDTH), (lastY - y) / static_cast<float>(Settings::SCREEN_HEIGHT), 0.0);
         lastX = x;
         lastY = y;
     } else if (mouseZoomPressed == true) {
-        camera.zoom(float(y - lastZoom) / SCREENHEIGHT);
+        camera.zoom(float(y - lastZoom) / Settings::SCREEN_HEIGHT);
         lastZoom = y;
     }
 }
@@ -302,9 +321,14 @@ int main(int argc, char **argv) {
         printUsage();
         exit(EXIT_FAILURE);
     }
+
+    Settings::selected_preset = Settings::Presets::PHASE_1;
+    Settings::selected_scene = 2;
+    Settings::applySelectedPreset();
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
-    glutInitWindowSize(SCREENWIDTH, SCREENHEIGHT);
+    glutInitWindowSize(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT);
     window = glutCreateWindow("gMini");
 
     init();
@@ -316,29 +340,7 @@ int main(int argc, char **argv) {
     glutMouseFunc(mouse);
     key('?', 0, 0);
 
-    cout << "Constants :" << endl
-         << "\tgeneral :" << endl
-         << "\t\tNSAMPLES: " << constants::general::NSAMPLES << endl
-         << "\t\tMESH_PATH: " << constants::scenes::MESH_PATH << endl
-         << "\tphong :" << endl
-         << "\t\tENABLED: " << constants::phong::ENABLED << endl
-         << "\t\tSHADOW_RAYS: " << constants::phong::SHADOW_RAYS << endl
-         << "\tmaterials :" << endl
-         << "\t\tENABLE_MIRROR: " << constants::materials::ENABLE_MIRROR << endl
-         << "\t\tENABLE_GLASS: " << constants::materials::ENABLE_GLASS << endl
-         << "\t\tAIR_INDEX_MEDIUM: " << constants::materials::AIR_INDEX_MEDIUM << endl
-         << "\tkdtree :" << endl
-         << "\t\tMAX_LEAF_SIZE: " << constants::kdtree::MAX_LEAF_SIZE << (constants::kdtree::MAX_LEAF_SIZE == 0 ? "(disabled)" : "") << endl
-         << endl;
-
     camera.move(0., 0., -3.1);
-    selected_scene = 0;
-    scenes.resize(5);
-    scenes[0].setup_single_sphere();
-    scenes[1].setup_single_square();
-    scenes[2].setup_cornell_box();
-    scenes[3].setup_single_mesh();
-    scenes[4].setup_refraction_test();
 
     glutMainLoop();
     return EXIT_SUCCESS;

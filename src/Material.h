@@ -28,7 +28,7 @@ struct Material {
         type = Material_DiffUSE_PHONG;
         image_id = -1;
         transparency = 0.0;
-        index_medium = constants::materials::AIR_INDEX_MEDIUM;
+        index_medium = Settings::Material::AIR_INDEX_MEDIUM;
         ambient_material = Vec3();
     }
 };

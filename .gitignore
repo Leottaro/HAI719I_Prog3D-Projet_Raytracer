@@ -7,3 +7,6 @@ main
 callgrind.*
 RayTracer.pro.user
 .qtc_clangd/compile_commands.json
+
+!rendus/**/*
+!img/**/*

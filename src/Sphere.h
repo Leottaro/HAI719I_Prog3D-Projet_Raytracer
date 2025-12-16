@@ -154,7 +154,7 @@ public:
         float sqrt_delta = sqrt(delta);
         float t = (-b - sqrt_delta) / (2 * a);
         float t2 = (-b + sqrt_delta) / (2 * a);
-        bool is_outside = t >= constants::general::EPSILON;
+        bool is_outside = t >= Settings::EPSILON;
         // if (!is_outside) {
         //     return intersection;
         // }
