@@ -1,20 +1,26 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-#include "Scene.h"
-#include "ShaderProgram.h"
-#include "Vec3.h"
-#include "matrixUtilities.h"
 #include <GL/glew.h>
 #include <GL/glext.h>
+#include <GL/gl.h>
+
+#include "Scene.h"
+#include "Vec3.h"
+#include "matrixUtilities.h"
+#include "ComputeShader.h"
+
 #include <chrono>
 #include <iomanip>
 #include <string>
 #include <vector>
+#include <cstring>
 
 struct Renderer : Scene {
 public:
-    Renderer() {}
+    // =====================================================================================================
+    // ================================================ CPU ================================================
+    // =====================================================================================================
 
     void draw() {
         // iterer sur l'ensemble des objets, et faire leur rendu :
@@ -33,7 +39,7 @@ public:
     }
 
     vector<Vec3> rayTraceFromCameraCPU(int _width, int _height, int _max_t) {
-        cout << "Ray tracing a " << _width << " x " << _height << "image :" << endl;
+        cout << "Ray tracing a " << _width << " x " << _height << " image (CPU) :" << endl;
         Vec3 pos, dir;
         int n_pixels = _width * _height;
         vector<Vec3> image(n_pixels, Vec3(0, 0, 0));
@@ -70,89 +76,65 @@ public:
     // =====================================================================================================
     // ================================================ GPU ================================================
     // =====================================================================================================
-private:
-    std::shared_ptr<ShaderProgram> m_shaderProgramPtr;
-    GLuint m_texture_out;
-    unsigned int m_width;
-    unsigned int m_height;
 
-    void free() {
-        glDeleteTextures(1, &m_texture_out);
-        m_texture_out = 0;
-        m_width = 0;
-        m_height = 0;
+private:
+    ComputeShader m_shader;
+
+    void updateSceneUniforms() {
+        unsigned int nb_spheres = spheres.size();
+        m_shader.set("nb_spheres", nb_spheres);
+        for (unsigned int i = 0; i < nb_spheres; i++) {
+            m_shader.set("spheres[" + std::to_string(i) + "]", spheres[i]);
+        }
+        unsigned int nb_squares = squares.size();
+        m_shader.set("nb_squares", nb_squares);
+        for (unsigned int i = 0; i < nb_squares; i++) {
+            m_shader.set("squares[" + std::to_string(i) + "]", squares[i]);
+        }
+        // unsigned int nb_meshes = meshes.size();
+        // m_shader.set("nb_meshes", nb_meshes);
+        // for (unsigned int i = 0; i < nb_meshes; i++) {
+        //     m_shader.set("meshes[" + std::to_string(i) + "]", meshes[i]);
+        // }
+        unsigned int nb_lights = lights.size();
+        m_shader.set("nb_lights", nb_lights);
+        for (unsigned int i = 0; i < nb_lights; i++) {
+            m_shader.set("lights[" + std::to_string(i) + "]", lights[i]);
+        }
     }
 
 public:
-    bool init(unsigned int _width, unsigned int _height) {
-        if (m_width != 0 || m_height != 0) {
-            free();
-        }
-        m_width = _width;
-        m_height = _height;
+    vector<Vec3> rayTraceFromCameraGPU(int _width, int _height, int _max_t) {
+        cout << "Ray tracing a " << _width << " x " << _height << " image (GPU) :" << endl;
+        auto begin = chrono::high_resolution_clock::now();
 
-        glGenTextures(1, &m_texture_out);
+        GLuint texture;
+        glGenTextures(1, &texture);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, m_texture_out);
+        glBindTexture(GL_TEXTURE_2D, texture);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_width, m_height, 0, GL_RGBA, GL_FLOAT, NULL);
-    }
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, _width, _height, 0, GL_RGBA, GL_FLOAT, NULL);
+        glBindImageTexture(0, texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
-    void updateScene() {
-        int nb_spheres = spheres.size();
-        m_shaderProgramPtr->set("nb_spheres", nb_spheres);
-        for (unsigned int i = 0; i < nb_spheres; i++) {
-            m_shaderProgramPtr->set("spheres[" + std::to_string(i) + "]", nb_spheres);
-        }
-        int nb_squares = squares.size();
-        m_shaderProgramPtr->set("nb_squares", nb_squares);
-        for (unsigned int i = 0; i < nb_squares; i++) {
-            m_shaderProgramPtr->set("squares[" + std::to_string(i) + "]", nb_squares);
-        }
-        int nb_meshes = meshes.size();
-        m_shaderProgramPtr->set("nb_meshes", nb_meshes);
-        for (unsigned int i = 0; i < nb_meshes; i++) {
-            m_shaderProgramPtr->set("meshes[" + std::to_string(i) + "]", nb_meshes);
-        }
-        int nb_lights = lights.size();
-        m_shaderProgramPtr->set("nb_lights", nb_lights);
-        for (unsigned int i = 0; i < nb_lights; i++) {
-            m_shaderProgramPtr->set("lights[" + std::to_string(i) + "]", nb_lights);
-        }
-    }
+        m_shader.use();
 
-    void execute(int _max_t) {
-        m_shaderProgramPtr->use();
-        updateScene();
-        m_shaderProgramPtr->stop();
-    }
+        m_shader.execute(_width, _height, 1);
 
-    vector<Vec3> getImageOut() {
-        glBindTexture(GL_TEXTURE_2D, m_texture_out);
-        std::vector<Vec3> image(m_width * m_height);
+        vector<Vec3> image(_width * _height);
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, image.data());
+        glDeleteTextures(1, &texture);
 
-        std::vector<float> textureData(m_width * m_height * 4); // RGBA format
-        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, textureData.data());
-
-        for (int y = 0; y < m_height; ++y) {
-            for (int x = 0; x < m_width; ++x) {
-                int index = (y * m_width + x) * 4; // RGBA has 4 components
-                image[y * m_width + x] = Vec3(textureData[index], textureData[index + 1], textureData[index + 2]);
-            }
-        }
+        auto end = chrono::high_resolution_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << " milliseconds." << endl;
 
         return image;
     }
 
-    vector<Vec3> rayTraceFromCameraGPU(int _width, int _height, int _max_t) {
-        init(_width, _height);
-        updateScene();
-        execute(_max_t);
-        return getImageOut();
-    }
+    Renderer() : m_shader("ressources/shaders/compute.glsl") {}
 };
 
 #endif

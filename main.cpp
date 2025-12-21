@@ -93,6 +93,12 @@ void initLight() {
 }
 
 void init() {
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        std::cerr << "GLEW Initialization Error: " << glewGetErrorString(err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
     camera.resize(SCREENWIDTH, SCREENHEIGHT);
     initLight();
     // glCullFace (GL_BACK);
@@ -210,7 +216,10 @@ void key(unsigned char keyPressed, int x, int y) {
             "rendu.ppm",
             width,
             height);
-
+        break;
+    case 'R':
+        camera.apply();
+        rays.clear();
         writePPM(
             renderers[selected_renderer].rayTraceFromCameraGPU(width, height, camera.getFarPlane()),
             "renduGPU.ppm",
@@ -280,6 +289,7 @@ int main(int argc, char **argv) {
         printUsage();
         exit(EXIT_FAILURE);
     }
+    cout << "glut init" << endl;
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
     glutInitWindowSize(SCREENWIDTH, SCREENHEIGHT);

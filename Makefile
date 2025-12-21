@@ -11,7 +11,7 @@
 
 CIBLE = main
 SRCS =  src/Camera.cpp main.cpp src/Trackball.cpp src/imageLoader.cpp src/Mesh.cpp 
-LIBS =  -lglut -lGLU -lGL -lm -lpthread 
+LIBS =  -lglut -lGLU -lGL -lGLEW -lm -lpthread 
 #########################################################"
 
 INCDIR = .
@@ -23,8 +23,8 @@ CC = g++
 CPP = g++
 
 # options du compilateur          
-CFLAGS = -Wall -O3 
-CXXFLAGS = -Wall -O3 
+CFLAGS = -Wall -g 
+CXXFLAGS = -Wall -g 
 
 # option du preprocesseur
 CPPFLAGS =  -I$(INCDIR) 
