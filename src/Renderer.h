@@ -79,24 +79,70 @@ public:
 
 private:
     ComputeShader m_shader;
+    unsigned int m_width, m_height;
+
+    void updateSettings() {
+        m_shader.set("settings.EPSILON", Settings::EPSILON);
+        m_shader.set("settings.NSAMPLES", Settings::NSAMPLES);
+        m_shader.set("settings.MAX_BOUNCES", Settings::MAX_BOUNCES);
+
+        m_shader.set("settings.Phong.ENABLED", Settings::Phong::ENABLED);
+        m_shader.set("settings.Phong.SHADOW_RAYS", Settings::Phong::SHADOW_RAYS);
+
+        m_shader.set("settings.Material.ENABLE_MIRROR", Settings::Material::ENABLE_MIRROR);
+        m_shader.set("settings.Material.ENABLE_GLASS", Settings::Material::ENABLE_GLASS);
+        m_shader.set("settings.Material.AIR_INDEX_MEDIUM", Settings::Material::AIR_INDEX_MEDIUM);
+
+        m_shader.set("settings.Mesh.ENABLE_INTERPOLATION", Settings::Mesh::ENABLE_INTERPOLATION);
+
+        m_shader.set("settings.KdTree.EPSILON", Settings::KdTree::EPSILON);
+        m_shader.set("settings.KdTree.MAX_LEAF_SIZE", Settings::KdTree::MAX_LEAF_SIZE);
+
+        m_shader.set("settings.Bonus.ENABLE_TEXTURES", Settings::Bonus::ENABLE_TEXTURES);
+    }
+
+    void updateCameraUniforms() {
+        // TODO: fix ça casse tout dans la scène opengl de base
+        GLdouble model_view[16];
+        GLdouble model_view_inverse[16];
+        glMatrixMode(GL_MODELVIEW);
+        glGetDoublev(GL_MODELVIEW_MATRIX, model_view);
+        gluInvertMatrix(model_view, model_view_inverse);
+
+        GLdouble projection[16];
+        GLdouble projection_inverse[16];
+        glMatrixMode(GL_PROJECTION);
+        glGetDoublev(GL_PROJECTION_MATRIX, projection);
+        gluInvertMatrix(projection, projection_inverse);
+
+        GLdouble near_and_far_planes[2];
+        glGetDoublev(GL_DEPTH_RANGE, near_and_far_planes);
+
+        m_shader.set("model_view", model_view);
+        m_shader.set("model_view_inverse", model_view_inverse);
+        m_shader.set("projection", projection);
+        m_shader.set("projection_inverse", projection_inverse);
+        m_shader.set("near_and_far_planes", near_and_far_planes);
+    }
 
     void updateSceneUniforms() {
-        unsigned int nb_spheres = spheres.size();
+        // objects uniforms
+        GLuint nb_spheres = spheres.size();
         m_shader.set("nb_spheres", nb_spheres);
         for (unsigned int i = 0; i < nb_spheres; i++) {
             m_shader.set("spheres[" + std::to_string(i) + "]", spheres[i]);
         }
-        unsigned int nb_squares = squares.size();
+        GLuint nb_squares = squares.size();
         m_shader.set("nb_squares", nb_squares);
         for (unsigned int i = 0; i < nb_squares; i++) {
             m_shader.set("squares[" + std::to_string(i) + "]", squares[i]);
         }
-        // unsigned int nb_meshes = meshes.size();
+        // GLuint nb_meshes = meshes.size();
         // m_shader.set("nb_meshes", nb_meshes);
         // for (unsigned int i = 0; i < nb_meshes; i++) {
         //     m_shader.set("meshes[" + std::to_string(i) + "]", meshes[i]);
         // }
-        unsigned int nb_lights = lights.size();
+        GLuint nb_lights = lights.size();
         m_shader.set("nb_lights", nb_lights);
         for (unsigned int i = 0; i < nb_lights; i++) {
             m_shader.set("lights[" + std::to_string(i) + "]", lights[i]);
@@ -104,28 +150,53 @@ private:
     }
 
 public:
-    vector<Vec3> rayTraceFromCameraGPU(int _width, int _height, int _max_t) {
-        cout << "Ray tracing a " << _width << " x " << _height << " image (GPU) :" << endl;
+    vector<Vec3> rayTraceFromCameraGPU(unsigned int _width, unsigned int _height, int _max_t) {
+        m_width = _width;
+        m_height = _height;
+        cout << "Ray tracing a " << m_width << " x " << m_height << " image (GPU) :" << endl;
         auto begin = chrono::high_resolution_clock::now();
 
-        GLuint texture;
-        glGenTextures(1, &texture);
+        // Create random texture
+        GLuint randomTexture;
+        glGenTextures(1, &randomTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, randomTexture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        vector<float> randomTextureData(m_width * Settings::NSAMPLES * m_height * (Settings::Phong::SHADOW_RAYS * 3 + 1));
+        for (unsigned int i = 0; i < m_width * Settings::NSAMPLES * m_height * (Settings::Phong::SHADOW_RAYS * 3 + 1); i++) {
+            randomTextureData[i] = float(rand()) / RAND_MAX;
+        }
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, m_width * Settings::NSAMPLES, m_height * (Settings::Phong::SHADOW_RAYS * 3 + 1), 0, GL_RED, GL_FLOAT, randomTextureData.data());
+
+        // Create the output texture
+        GLuint imgOutput;
+        glGenTextures(1, &imgOutput);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
+        glBindTexture(GL_TEXTURE_2D, imgOutput);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, _width, _height, 0, GL_RGBA, GL_FLOAT, NULL);
-        glBindImageTexture(0, texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_width, m_height, 0, GL_RGBA, GL_FLOAT, NULL);
+        glBindImageTexture(0, imgOutput, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
+        // use and execute the shader
         m_shader.use();
+        m_shader.set("randomTexture", 1);
+        m_shader.set("screen_width", m_width);
+        m_shader.set("screen_height", m_height);
+        updateSettings();
+        updateCameraUniforms();
+        updateSceneUniforms();
+        m_shader.execute(m_width, m_height, 1);
 
-        m_shader.execute(_width, _height, 1);
-
-        vector<Vec3> image(_width * _height);
+        // retreive the image
+        vector<Vec3> image(m_width * m_height);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, image.data());
-        glDeleteTextures(1, &texture);
+        glDeleteTextures(1, &imgOutput);
 
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();

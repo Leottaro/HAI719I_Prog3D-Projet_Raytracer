@@ -178,6 +178,10 @@ Vec3 cameraSpaceToWorldSpace(Vec3 const &pCS) { // pCS : p in Camera Space
 }
 Vec3 screen_space_to_worldSpace(float u, float v) {
     // u et v sont entre 0 et 1 (0,0 est en haut a gauche de l'ecran)
+    GLdouble modelview[16];
+    GLdouble modelviewInverse[16];
+    glMatrixMode(GL_MODELVIEW);
+    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
     GLdouble projection[16];
     GLdouble projectionInverse[16];
     glMatrixMode(GL_PROJECTION);
@@ -185,10 +189,6 @@ Vec3 screen_space_to_worldSpace(float u, float v) {
     gluInvertMatrix(projection, projectionInverse);
     GLdouble nearAndFarPlanes[2];
     glGetDoublev(GL_DEPTH_RANGE, nearAndFarPlanes);
-    GLdouble modelview[16];
-    GLdouble modelviewInverse[16];
-    glMatrixMode(GL_MODELVIEW);
-    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
     gluInvertMatrix(modelview, modelviewInverse);
     GLdouble resInt[4];
     mult(projectionInverse, (GLdouble)2.f * u - 1.f, -((GLdouble)2.f * v - 1.f), nearAndFarPlanes[0], (GLdouble)1.0, resInt[0], resInt[1], resInt[2], resInt[3]);

@@ -27,8 +27,7 @@ public:
         std::ifstream compute_file;
         compute_file.open(_compute_path);
         if (!compute_file.is_open()) {
-            std::cerr << "ERROR::COMPUTE_SHADER::FILE_NOT_SUCCESFULLY_OPENED: " << _compute_path << std::endl;
-            return;
+            throw std::runtime_error("ERROR::COMPUTE_SHADER::FILE_NOT_SUCCESFULLY_OPENED: " + _compute_path);
         }
 
         std::stringstream compute_stream;
@@ -47,8 +46,7 @@ public:
         glGetShaderiv(compute, GL_COMPILE_STATUS, &success);
         if (!success) {
             glGetShaderInfoLog(compute, 512, NULL, infoLog);
-            std::cout << "ERROR::COMPUTE_SHADER::COMPILATION_FAILED\n"
-                      << infoLog << std::endl;
+            throw std::runtime_error("ERROR::COMPUTE_SHADER::COMPILATION_FAILED\n" + std::string(infoLog));
         };
 
         m_shader_id = glCreateProgram();
@@ -57,8 +55,7 @@ public:
         glGetProgramiv(m_shader_id, GL_LINK_STATUS, &success);
         if (!success) {
             glGetProgramInfoLog(m_shader_id, 512, NULL, infoLog);
-            std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
-                      << infoLog << std::endl;
+            throw std::runtime_error("ERROR::COMPUTE_SHADER::LINKING_FAILED\n" + std::string(infoLog));
         }
 
         glDeleteShader(compute);
@@ -73,24 +70,32 @@ public:
         glMemoryBarrier(barriers);
     }
 
-    void set(const std::string &name, bool value) const {
+    void set(const std::string &name, GLboolean value) const {
         glUniform1i(glGetUniformLocation(m_shader_id, name.c_str()), (int)value);
     }
 
-    void set(const std::string &name, int value) const {
+    void set(const std::string &name, GLint value) const {
         glUniform1i(glGetUniformLocation(m_shader_id, name.c_str()), value);
     }
 
     void set(const std::string &name, GLuint value) const {
-        glUniform1i(glGetUniformLocation(m_shader_id, name.c_str()), value);
+        glUniform1ui(glGetUniformLocation(m_shader_id, name.c_str()), value);
     }
 
-    void set(const std::string &name, float value) const {
+    void set(const std::string &name, GLfloat value) const {
         glUniform1f(glGetUniformLocation(m_shader_id, name.c_str()), value);
     }
 
     void set(const std::string &name, const Vec3 &value) const {
         glUniform3fv(glGetUniformLocation(m_shader_id, name.c_str()), 1, value.valuePtr());
+    }
+
+    void set(const std::string &name, const GLdouble value[]) const {
+        glUniformMatrix4dv(glGetUniformLocation(m_shader_id, name.c_str()), 1, false, value);
+    }
+
+    void set(const std::string &name, const GLfloat value[]) const {
+        glUniformMatrix4fv(glGetUniformLocation(m_shader_id, name.c_str()), 1, false, value);
     }
 
     void set(const std::string &name, const Material &value) const {
