@@ -106,7 +106,7 @@ public:
         set(name + ".shininess", (float)value.shininess);
         set(name + ".index_medium", value.index_medium);
         set(name + ".transparency", value.transparency);
-        set(name + ".type", (int)value.type);
+        set(name + ".type", (GLuint)value.type);
     }
 
     void set(const std::string &name, const Sphere &value) const {
@@ -126,7 +126,7 @@ public:
     void set(const std::string &name, const Light &value) const {
         set(name + ".material", value.material);
         set(name + ".isInCamSpace", value.isInCamSpace);
-        set(name + ".type", value.type);
+        set(name + ".type", (GLuint)value.type);
         set(name + ".sphere", value.sphere);
         set(name + ".quad", value.quad);
         set(name + ".powerCorrection", value.powerCorrection);

@@ -47,7 +47,6 @@ static unsigned int FPS = 0;
 static bool fullScreen = false;
 
 vector<Renderer> renderers;
-unsigned int selected_renderer;
 
 vector<pair<Vec3, Vec3>> rays;
 
@@ -222,7 +221,7 @@ void key(unsigned char keyPressed, int x, int y) {
         camera.apply();
         rays.clear();
         writePPM(
-            renderers[selected_renderer].rayTraceFromCameraCPU(width, height, camera.getFarPlane()),
+            renderers[Settings::selected_renderer].rayTraceFromCameraCPU(width, height, camera.getFarPlane()),
             "rendu.ppm",
             width,
             height);
@@ -231,7 +230,7 @@ void key(unsigned char keyPressed, int x, int y) {
         camera.apply();
         rays.clear();
         writePPM(
-            renderers[selected_renderer].rayTraceFromCameraGPU(width, height, camera.getFarPlane()),
+            renderers[Settings::selected_renderer].rayTraceFromCameraGPU(width, height, camera.getFarPlane()),
             "renduGPU.ppm",
             width,
             height);
@@ -310,7 +309,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    Settings::selected_preset = Settings::Presets::PHASE_1;
+    Settings::selected_preset = Settings::Presets::PHASE_2_SOFT_SHADOWS;
     Settings::selected_renderer = 2;
     Settings::applySelectedPreset();
 
@@ -329,7 +328,6 @@ int main(int argc, char **argv) {
     key('?', 0, 0);
 
     camera.move(0., 0., -3.1);
-    selected_renderer = 0;
     renderers.resize(5);
     renderers[0].setup_single_sphere();
     renderers[1].setup_single_square();

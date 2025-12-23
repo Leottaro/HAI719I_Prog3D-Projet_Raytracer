@@ -13,8 +13,8 @@
 using namespace std;
 
 enum LightType {
-    LightType_Spherical,
-    LightType_Quad
+    LightType_Spherical = 1,
+    LightType_Quad = 2
 };
 
 struct Light {
@@ -209,7 +209,7 @@ private:
         }
     }
 
-    float computeShadowIndex(const Ray &ray, const RaySceneIntersection &intersection, const Light &light, int max_t) {
+    float computeShadowIndex(const Ray &ray, const RaySceneIntersection &intersection, const Light &light) {
         int shadow_count = 0;
         for (unsigned int i = 0; i < Settings::Phong::SHADOW_RAYS; i++) {
             Vec3 sampled_pos;
@@ -271,7 +271,7 @@ private:
             Vec3 L = light_pos - P;
             L.normalize();
 
-            float shadow_index = Settings::Phong::SHADOW_RAYS > 0 ? computeShadowIndex(ray, intersection, light, max_t) : 0.;
+            float shadow_index = Settings::Phong::SHADOW_RAYS > 0 ? computeShadowIndex(ray, intersection, light) : 0.;
 
             float LdotN = Vec3::dot(L, N);
             Vec3 R = 2. * N * LdotN - L;
