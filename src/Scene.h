@@ -168,7 +168,7 @@ private:
 
         Vec3 v_reflect = di - 2. * dn * Vec3::dot(di, dn);
         v_reflect.normalize();
-        Ray reflection_ray = Ray(intersection.intersection, v_reflect, ray.index_mediums, ray.object_types, ray.object_indices);
+        Ray reflection_ray = Ray(intersection.intersection, v_reflect, ray);
         return reflection_ray;
     }
 
@@ -202,7 +202,7 @@ private:
             float r = nL / nT;
             float c = Vec3::dot(N, L);
             Vec3 T = N * (-r * c - sqrt(1 - r * r * (1 - c * c))) + L * r; // v_refract
-            Ray refraction_ray = Ray(intersection.intersection, T, ray.index_mediums, ray.object_types, ray.object_indices);
+            Ray refraction_ray = Ray(intersection.intersection, T, ray);
             return refraction_ray;
         } else {
             return computeReflectionRay(ray, intersection);
@@ -228,7 +228,7 @@ private:
                 }
             }
             Vec3 direction = intersection.intersection - sampled_pos;
-            Ray shadow_ray = Ray(sampled_pos, direction, ray.index_mediums, ray.object_types, ray.object_indices);
+            Ray shadow_ray = Ray(sampled_pos, direction, ray);
             RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, Settings::EPSILON, direction.length() - Settings::EPSILON, true);
             if (shadow_intersection.intersectionExists && shadow_intersection.typeOfIntersectedObject != LightIntersection) {
                 shadow_count++;
@@ -237,7 +237,7 @@ private:
         return (float)shadow_count / Settings::Phong::SHADOW_RAYS;
     }
 
-    Vec3 phong(Ray const &ray, RaySceneIntersection const &intersection, int max_t, int NRemainingBounces) {
+    Vec3 phong(Ray const &ray, RaySceneIntersection const &intersection) {
         const Material &material = intersection.material;
         const Vec3 &P = intersection.intersection;
         const Vec3 kd = Settings::Bonus::ENABLE_TEXTURES && material.image_id >= 0 && !images[material.image_id].data.empty() ? images[material.image_id].getPixel(intersection.u, intersection.v) : material.diffuse_material;
@@ -288,34 +288,65 @@ private:
 public:
     Scene() {}
 
-    Vec3 rayTraceRecursive(Ray ray, float min_t, float max_t, int NRemainingBounces) {
+    Vec3 rayTraceRecursive(Ray const &ray, float min_t, float max_t, int NRemainingBounces) {
         RaySceneIntersection raySceneIntersection = computeIntersection(ray, min_t, max_t, false);
         if (!raySceneIntersection.intersectionExists) {
             return Vec3();
         }
 
         Material material = raySceneIntersection.material;
-        Vec3 I = phong(ray, raySceneIntersection, max_t, NRemainingBounces);
+        Vec3 color;
 
         if (Settings::Material::ENABLE_GLASS && material.type == Material_Glass && NRemainingBounces > 0) {
             Ray refraction = computeRefractionRay(ray, raySceneIntersection);
-            I = rayTraceRecursive(refraction, Settings::EPSILON, max_t, NRemainingBounces - 1);
-        }
-
-        if (Settings::Material::ENABLE_MIRROR && material.type == Material_Mirror && NRemainingBounces > 0) {
+            color = rayTraceRecursive(refraction, Settings::EPSILON, max_t, NRemainingBounces - 1);
+        } else if (Settings::Material::ENABLE_MIRROR && material.type == Material_Mirror && NRemainingBounces > 0) {
             Ray reflection = computeReflectionRay(ray, raySceneIntersection);
-            I = rayTraceRecursive(reflection, Settings::EPSILON, max_t, NRemainingBounces - 1);
+            color = rayTraceRecursive(reflection, Settings::EPSILON, max_t, NRemainingBounces - 1);
+        } else {
+            color = phong(ray, raySceneIntersection);
         }
 
-        I[0] = min(max(0.f, I[0]), 1.f);
-        I[1] = min(max(0.f, I[1]), 1.f);
-        I[2] = min(max(0.f, I[2]), 1.f);
+        color[0] = min(max(0.f, color[0]), 1.f);
+        color[1] = min(max(0.f, color[1]), 1.f);
+        color[2] = min(max(0.f, color[2]), 1.f);
 
-        return I;
+        return color;
+    }
+
+    Vec3 rayTraceIterative(Ray ray, float min_t, float max_t, int maxBounces) {
+        Vec3 color;
+
+        for (int bounce = 0; bounce <= maxBounces; bounce++) {
+            RaySceneIntersection intersection = computeIntersection(ray, min_t, max_t, false);
+            if (!intersection.intersectionExists) {
+                color = Vec3();
+                break;
+            }
+
+            if (Settings::Material::ENABLE_GLASS && intersection.material.type == Material_Glass) {
+                ray = computeRefractionRay(ray, intersection);
+            } else if (Settings::Material::ENABLE_MIRROR && intersection.material.type == Material_Mirror) {
+                ray = computeReflectionRay(ray, intersection);
+            } else {
+                color = phong(ray, intersection);
+
+                color[0] = std::min(std::max(0.f, color[0]), 1.f);
+                color[1] = std::min(std::max(0.f, color[1]), 1.f);
+                color[2] = std::min(std::max(0.f, color[2]), 1.f);
+
+                break;
+            }
+
+            min_t = Settings::EPSILON;
+        }
+
+        return color;
     }
 
     Vec3 rayTrace(Ray const &rayStart, float min_t = Settings::EPSILON, float max_t = FLT_MAX) {
-        Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, Settings::MAX_BOUNCES);
+        // Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, Settings::MAX_BOUNCES);
+        Vec3 color = rayTraceIterative(rayStart, min_t, max_t, Settings::MAX_BOUNCES);
         return color;
     }
 

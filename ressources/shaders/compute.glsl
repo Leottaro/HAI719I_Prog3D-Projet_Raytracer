@@ -1,5 +1,7 @@
 #version 430 core
 const float PI = 3.14159265359;
+const uint UINT_MAX = 0xFFFFFFFF;
+const float FLT_MAX = 3.402823466e+38;
 
 // ======================================================================================================
 // ============================================= STRUCTURES =============================================
@@ -35,6 +37,8 @@ struct Settings {
   float EPSILON;
   uint NSAMPLES;
   uint MAX_BOUNCES;
+  uint SCREEN_WIDTH;
+  uint SCREEN_HEIGHT;
 
   PhongSettings Phong;
   MaterialSettings Material;
@@ -139,9 +143,9 @@ layout(binding = 0, rgba32f) uniform image2D imgOutput;
 layout(binding = 1, rgba32f) uniform image2D rayTexture; // width of screen_width * NSAMPLES and height of screen_height
 layout(binding = 2, rgba32f) uniform image2D randomTexture; // width of screen_width * NSAMPLES and height of screen_height * (SHADOW_RAYS + 1)
 
-uniform uint screen_width;
-uniform uint screen_height;
 uniform vec3 camera_pos;
+uniform float min_t;
+uniform float max_t;
 
 uniform Settings settings;
 
@@ -154,11 +158,7 @@ uniform Light lights[10];
 // uniform uint nb_meshes;
 // uniform Mesh meshes;
 
-vec2 uv = vec2(gl_GlobalInvocationID.xy) / gl_NumWorkGroups.xy;
 ivec3 screen_coords = ivec3(gl_GlobalInvocationID.xyz);
-// float random_value = imageLoad(randomTexture, screen_coords.xy).r;
-ivec2 ray_coords = ivec2(screen_coords.x * settings.NSAMPLES + screen_coords.z, screen_coords.y);
-vec3 ray_direction = imageLoad(rayTexture, ray_coords).xyz;
 
 // =====================================================================================================
 // ============================================= FUNCTIONS =============================================
@@ -204,6 +204,9 @@ Ray newRay(vec3 position, vec3 direction) {
   Ray ray;
   ray.pos = position;
   ray.dir = normalize(direction);
+  ray.index_mediums[0] = settings.Material.AIR_INDEX_MEDIUM;
+  ray.object_types[0] = UINT_MAX;
+  ray.object_indices[0] = UINT_MAX;
   return ray;
 }
 
@@ -254,7 +257,7 @@ RaySquareIntersection intersectSquare(Ray ray, Square square, bool can_intersect
   const vec3 N = square.m_normal;
 
   // nous sommes derrière le carré donc pas d'intersection
-  if(!can_intersect_behind && square.material.type != Material_Glass && dot(D, N) >= 0) {
+  if(!can_intersect_behind && square.material.type != Material_Glass && dot(D, N) >= 0.) {
     return intersection;
   }
 
@@ -265,7 +268,7 @@ RaySquareIntersection intersectSquare(Ray ray, Square square, bool can_intersect
   float u = dot(PC, square.m_right_vector) / dot(square.m_right_vector, square.m_right_vector);
   float v = dot(PC, square.m_up_vector) / dot(square.m_up_vector, square.m_up_vector);
 
-  if(settings.EPSILON <= u && u <= 1 && settings.EPSILON <= v && v <= 1) {
+  if(settings.EPSILON <= u && u <= 1. && settings.EPSILON <= v && v <= 1.) {
     intersection.intersectionExists = true;
     intersection.t = t;
     intersection.u = u;
@@ -287,17 +290,17 @@ RaySphereIntersection intersectSphere(Ray ray, Sphere sphere) {
   vec3 CO = O - C;
 
   float a = dot(D, D);
-  float b = 2 * dot(D, CO);
+  float b = 2. * dot(D, CO);
   float c = dot(CO, CO) - r * r;
-  float delta = b * b - 4 * a * c;
+  float delta = b * b - 4. * a * c;
 
-  if(delta < 0) {
+  if(delta < 0.) {
     return intersection;
   }
 
   float sqrt_delta = sqrt(delta);
-  float t = (-b - sqrt_delta) / (2 * a);
-  float t2 = (-b + sqrt_delta) / (2 * a);
+  float t = (-b - sqrt_delta) / (2. * a);
+  float t2 = (-b + sqrt_delta) / (2. * a);
   bool is_outside = t >= settings.EPSILON;
   // if (!is_outside) {
   //     return intersection;
@@ -404,7 +407,7 @@ Ray computeRefractionRay(Ray ray, RaySceneIntersection intersection) {
   if(sin_thetaL <= nT / nL) {
     float r = nL / nT;
     float c = dot(N, L);
-    vec3 T = N * (-r * c - sqrt(1 - r * r * (1 - c * c))) + L * r; // v_refract
+    vec3 T = N * (-r * c - sqrt(1. - r * r * (1. - c * c))) + L * r; // v_refract
     Ray refraction_ray = newRay(intersection.intersection, T, ray);
     return refraction_ray;
   } else {
@@ -421,7 +424,7 @@ float computeShadowIndex(Ray ray, RaySceneIntersection intersection, Light light
       sampled_pos = getLightCentralPos(light);
     } else {
       if(light.type == LightType_Spherical) {
-        float theta = 2 * PI * randoms.x;
+        float theta = 2. * PI * randoms.x;
         float phi = PI * randoms.y;
         float r = light.sphere.m_radius * sqrt(randoms.z);
         sampled_pos = light.sphere.m_center + r * sphericalCoordinatesToEuclidean(theta, phi);
@@ -441,7 +444,7 @@ float computeShadowIndex(Ray ray, RaySceneIntersection intersection, Light light
   return float(shadow_count) / float(settings.Phong.SHADOW_RAYS);
 }
 
-vec3 phong(Ray ray, RaySceneIntersection intersection, uint NRemainingBounces) {
+vec3 phong(Ray ray, RaySceneIntersection intersection) {
   const Material material = intersection.material;
   const vec3 P = intersection.intersection;
   // const vec3 kd = settings.Bonus.ENABLE_TEXTURES && material.image_id >= 0 && !images[material.image_id].data.empty() ? images[material.image_id].getPixel(intersection.u, intersection.v) : material.diffuse_material;
@@ -453,7 +456,7 @@ vec3 phong(Ray ray, RaySceneIntersection intersection, uint NRemainingBounces) {
 
   // https://en.wikipedia.org/wiki/Phong_reflection_model#Concepts AND
   // https://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_reflection_model
-  const vec3 V = -1 * ray.dir;
+  const vec3 V = -1. * ray.dir;
   const vec3 N = intersection.normal;
 
   vec3 Ia = vec3(0.);
@@ -488,45 +491,37 @@ vec3 phong(Ray ray, RaySceneIntersection intersection, uint NRemainingBounces) {
   return Ia + Id + Is;
 }
 
-vec3 rayTraceIterative(Ray ray, float min_t, float max_t) {
-  vec3 color = vec3(0.); // Accumulated color
-  uint bounces = 0;
+vec3 rayTraceIterative(Ray _ray, float _min_t, float _max_t) {
+  vec3 color = vec3(0.);
 
-  while(bounces < settings.MAX_BOUNCES) {
-    RaySceneIntersection intersection = computeIntersection(ray, min_t, max_t, false);
+  for(uint bounce = 0; bounce <= settings.MAX_BOUNCES; bounce++) {
+    RaySceneIntersection intersection = computeIntersection(_ray, settings.EPSILON, max_t, false);
     if(!intersection.intersectionExists) {
-      break; // No intersection, terminate the loop
+      color = vec3(0.);
+      break;
     }
 
-    Material material = intersection.material;
-    color += phong(ray, intersection, settings.MAX_BOUNCES - bounces);
-
-    if(settings.Material.ENABLE_GLASS && material.type == Material_Glass) {
-      ray = computeRefractionRay(ray, intersection);
-    } else if(settings.Material.ENABLE_MIRROR && material.type == Material_Mirror) {
-      ray = computeReflectionRay(ray, intersection);
+    if(settings.Material.ENABLE_GLASS && intersection.material.type == Material_Glass) {
+      _ray = computeRefractionRay(_ray, intersection);
+    } else if(settings.Material.ENABLE_MIRROR && intersection.material.type == Material_Mirror) {
+      _ray = computeReflectionRay(_ray, intersection);
     } else {
-      break; // No further bounces
+      color = max(vec3(0.), min(vec3(1.), phong(_ray, intersection)));
+      break;
     }
 
-    bounces++;
+    _min_t = settings.EPSILON;
   }
 
   return color;
 }
 
-vec3 rayTrace(Ray rayStart, float min_t, float max_t) {
-  // RaySceneIntersection intersection = computeIntersection(rayStart, min_t, max_t, false);
-  // return intersection.material.diffuse_material;
-  return rayTraceIterative(rayStart, min_t, max_t);
-}
-
 void main() {
-  Ray ray;
-  ray.pos = camera_pos;
-  ray.dir = ray_direction;
-  ray.nb_bounces = 0;
+  ivec2 ray_coords = ivec2(screen_coords.x * settings.NSAMPLES + screen_coords.z, screen_coords.y);
+  vec3 ray_direction = imageLoad(rayTexture, ray_coords).xyz;
+
+  Ray ray = newRay(camera_pos, ray_direction);
   vec3 color = imageLoad(imgOutput, screen_coords.xy).rgb;
-  color += rayTrace(ray, 0., 1000000.) / settings.NSAMPLES;
+  color += rayTraceIterative(ray, min_t, max_t) / settings.NSAMPLES;
   imageStore(imgOutput, screen_coords.xy, vec4(color, 1.));
 }

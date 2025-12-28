@@ -38,17 +38,17 @@ public:
         }
     }
 
-    vector<Vec3> rayTraceFromCameraCPU(int _width, int _height, int _max_t) {
-        cout << "Ray tracing a " << _width << " x " << _height << " image (CPU) :" << endl;
+    vector<Vec3> rayTraceFromCameraCPU(float _min_t, float _max_t) {
+        cout << "Ray tracing a " << Settings::SCREEN_WIDTH << " x " << Settings::SCREEN_HEIGHT << " image (CPU) :" << endl;
         Vec3 pos, dir;
-        int n_pixels = _width * _height;
+        int n_pixels = Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT;
         vector<Vec3> image(n_pixels, Vec3(0, 0, 0));
 
         auto begin = chrono::high_resolution_clock::now();
 
-        for (int y = 0; y < _height; y++) {
-            for (int x = 0; x < _width; x++) {
-                int pixel_i = y * _width + x + 1;
+        for (unsigned int y = 0; y < Settings::SCREEN_HEIGHT; y++) {
+            for (unsigned int x = 0; x < Settings::SCREEN_WIDTH; x++) {
+                int pixel_i = y * Settings::SCREEN_WIDTH + x + 1;
 
                 float percent = (float)pixel_i / n_pixels;
                 int64_t currently_elapsed = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - begin).count();
@@ -56,14 +56,14 @@ public:
 
                 cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << 100.f * percent << "% completed) ~" << remaining_ms / 1000. << "s remaining     " << flush;
                 for (unsigned int s = 0; s < Settings::NSAMPLES; ++s) {
-                    float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / _width;
-                    float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / _height;
+                    float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_WIDTH;
+                    float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_HEIGHT;
                     // this is a random uv that belongs to the pixel xy.
                     screen_space_to_world_space_ray(u, v, pos, dir);
-                    Vec3 color = rayTrace(Ray(pos, dir), 0., _max_t);
-                    image[x + y * _width] += color;
+                    Vec3 color = rayTrace(Ray(pos, dir), _min_t, _max_t);
+                    image[x + y * Settings::SCREEN_WIDTH] += color;
                 }
-                image[x + y * _width] /= (float)Settings::NSAMPLES;
+                image[x + y * Settings::SCREEN_WIDTH] /= (float)Settings::NSAMPLES;
             }
         }
         auto end = chrono::high_resolution_clock::now();
@@ -79,21 +79,20 @@ public:
 
 private:
     ComputeShader m_shader;
-    unsigned int m_width, m_height;
     Vec3 m_camera_pos;
 
     GLuint m_ray_texture, m_random_texture, m_out_texture;
 
     void createTextures() {
         // rays data
-        vector<float> rayTextureData(m_width * Settings::NSAMPLES * m_height * 4);
+        vector<float> rayTextureData(Settings::SCREEN_WIDTH * Settings::NSAMPLES * Settings::SCREEN_HEIGHT * 4);
         Vec3 dir;
-        for (unsigned int y = 0; y < m_height; y++) {
-            for (unsigned int x = 0; x < m_width; x++) {
+        for (unsigned int y = 0; y < Settings::SCREEN_HEIGHT; y++) {
+            for (unsigned int x = 0; x < Settings::SCREEN_WIDTH; x++) {
                 for (unsigned int z = 0; z < Settings::NSAMPLES; ++z) {
-                    unsigned int i = y * m_width * Settings::NSAMPLES + x * Settings::NSAMPLES + z;
-                    float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / m_width;
-                    float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / m_height;
+                    unsigned int i = y * Settings::SCREEN_WIDTH * Settings::NSAMPLES + x * Settings::NSAMPLES + z;
+                    float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_WIDTH;
+                    float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_HEIGHT;
                     screen_space_to_world_space_ray(u, v, m_camera_pos, dir); // TODO: fix: ça casse la scène
                     rayTextureData[i * 4] = dir[0];
                     rayTextureData[i * 4 + 1] = dir[1];
@@ -104,8 +103,8 @@ private:
         }
 
         // randoms data
-        vector<float> randomTextureData(m_width * Settings::NSAMPLES * m_height * (Settings::Phong::SHADOW_RAYS + 1) * 4);
-        for (unsigned int i = 0; i < m_width * Settings::NSAMPLES * m_height * (Settings::Phong::SHADOW_RAYS + 1); i++) {
+        vector<float> randomTextureData(Settings::SCREEN_WIDTH * Settings::NSAMPLES * Settings::SCREEN_HEIGHT * (Settings::Phong::SHADOW_RAYS + 1) * 4);
+        for (unsigned int i = 0; i < Settings::SCREEN_WIDTH * Settings::NSAMPLES * Settings::SCREEN_HEIGHT * (Settings::Phong::SHADOW_RAYS + 1); i++) {
             randomTextureData[i * 4] = float(rand()) / RAND_MAX;
             randomTextureData[i * 4 + 1] = float(rand()) / RAND_MAX;
             randomTextureData[i * 4 + 2] = float(rand()) / RAND_MAX;
@@ -120,7 +119,7 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_width, m_height, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
         glBindImageTexture(0, m_out_texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         // Create the rays directions
@@ -131,7 +130,7 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_width * Settings::NSAMPLES, m_height, 0, GL_RGBA, GL_FLOAT, rayTextureData.data());
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Settings::SCREEN_WIDTH * Settings::NSAMPLES, Settings::SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, rayTextureData.data());
         glBindImageTexture(1, m_ray_texture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
         // Create random texture
@@ -142,7 +141,7 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_width * Settings::NSAMPLES, m_height * (Settings::Phong::SHADOW_RAYS + 1), 0, GL_RGBA, GL_FLOAT, randomTextureData.data());
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Settings::SCREEN_WIDTH * Settings::NSAMPLES, Settings::SCREEN_HEIGHT * (Settings::Phong::SHADOW_RAYS + 1), 0, GL_RGBA, GL_FLOAT, randomTextureData.data());
         glBindImageTexture(2, m_random_texture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
     }
 
@@ -150,6 +149,8 @@ private:
         m_shader.set("settings.EPSILON", Settings::EPSILON);
         m_shader.set("settings.NSAMPLES", Settings::NSAMPLES);
         m_shader.set("settings.MAX_BOUNCES", Settings::MAX_BOUNCES);
+        m_shader.set("settings.SCREEN_WIDTH", Settings::SCREEN_WIDTH);
+        m_shader.set("settings.SCREEN_HEIGHT", Settings::SCREEN_HEIGHT);
 
         m_shader.set("settings.Phong.ENABLED", Settings::Phong::ENABLED);
         m_shader.set("settings.Phong.SHADOW_RAYS", Settings::Phong::SHADOW_RAYS);
@@ -191,12 +192,9 @@ private:
     }
 
 public:
-    vector<Vec3> rayTraceFromCameraGPU(unsigned int _width, unsigned int _height, int _max_t) {
+    vector<Vec3> rayTraceFromCameraGPU(float _min_t, float _max_t) {
         auto begin = chrono::high_resolution_clock::now();
-        cout << "Ray tracing a " << m_width << " x " << m_height << " image (GPU) :" << endl;
-
-        m_width = _width;
-        m_height = _height;
+        cout << "Ray tracing a " << Settings::SCREEN_WIDTH << " x " << Settings::SCREEN_HEIGHT << " image (GPU) :" << endl;
 
         cout << "\tGenerating textures..." << endl;
         createTextures();
@@ -208,19 +206,19 @@ public:
         m_shader.set("rayTexture", 1);
         m_shader.set("randomTexture", 2);
 
-        m_shader.set("screen_width", m_width);
-        m_shader.set("screen_height", m_height);
         m_shader.set("camera_pos", m_camera_pos);
+        m_shader.set("min_t", _min_t);
+        m_shader.set("max_t", _max_t);
 
         updateSettings();
         updateSceneUniforms();
 
         cout << "\tExecuting shader..." << endl;
-        m_shader.execute(m_width, m_height, Settings::NSAMPLES);
+        m_shader.execute(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, Settings::NSAMPLES);
 
         // retrieve the image
         cout << "\tRetrieving the image..." << endl;
-        vector<Vec3> image(m_width * m_height);
+        vector<Vec3> image(Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT);
         glBindTexture(GL_TEXTURE_2D, m_out_texture);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, image.data());
         glDeleteTextures(1, &m_out_texture);

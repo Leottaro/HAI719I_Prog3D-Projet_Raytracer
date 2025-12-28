@@ -45,6 +45,8 @@ static bool mouseZoomPressed = false;
 static int lastX = 0, lastY = 0, lastZoom = 0;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
+static unsigned int old_width = 0;
+static unsigned int old_height = 0;
 
 vector<Renderer> renderers;
 
@@ -174,16 +176,16 @@ void idle() {
     glutPostRedisplay();
 }
 
-void writePPM(vector<Vec3> image, string filename, int width, int height) {
+void writePPM(vector<Vec3> image, string filename) {
     ofstream f(filename.c_str(), ios::binary);
     if (f.fail()) {
         cout << "Could not open file: " << filename << endl;
         return;
     }
     f << "P3" << endl
-      << width << " " << height << endl
+      << Settings::SCREEN_WIDTH << " " << Settings::SCREEN_HEIGHT << endl
       << 255 << endl;
-    for (int i = 0; i < width * height; i++)
+    for (unsigned int i = 0; i < Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT; i++)
         f << (int)(255.f * min<float>(1.f, image[i][0])) << " " << (int)(255.f * min<float>(1.f, image[i][1])) << " " << (int)(255.f * min<float>(1.f, image[i][2])) << " ";
     f << endl;
     f.close();
@@ -191,16 +193,16 @@ void writePPM(vector<Vec3> image, string filename, int width, int height) {
 
 void key(unsigned char keyPressed, int x, int y) {
     Vec3 pos, dir;
-    int width = glutGet(GLUT_WINDOW_WIDTH);
-    int height = glutGet(GLUT_WINDOW_HEIGHT);
     switch (keyPressed) {
     case 'f':
         if (fullScreen == true) {
-            glutReshapeWindow(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT);
+            glutReshapeWindow(old_width, old_height);
             fullScreen = false;
         } else {
             glutFullScreen();
             fullScreen = true;
+            old_width = Settings::SCREEN_WIDTH;
+            old_height = Settings::SCREEN_HEIGHT;
         }
         break;
     case 'q':
@@ -221,19 +223,13 @@ void key(unsigned char keyPressed, int x, int y) {
         camera.apply();
         rays.clear();
         writePPM(
-            renderers[Settings::selected_renderer].rayTraceFromCameraCPU(width, height, camera.getFarPlane()),
-            "rendu.ppm",
-            width,
-            height);
+            renderers[Settings::selected_renderer].rayTraceFromCameraCPU(camera.getNearPlane(), camera.getFarPlane()), "rendu.ppm");
         break;
     case 'R':
         camera.apply();
         rays.clear();
         writePPM(
-            renderers[Settings::selected_renderer].rayTraceFromCameraGPU(width, height, camera.getFarPlane()),
-            "renduGPU.ppm",
-            width,
-            height);
+            renderers[Settings::selected_renderer].rayTraceFromCameraGPU(camera.getNearPlane(), camera.getFarPlane()), "renduGPU.ppm");
         break;
     case '+':
         Settings::selected_renderer = (Settings::selected_renderer + 1) % renderers.size();
@@ -301,6 +297,8 @@ void motion(int x, int y) {
 
 void reshape(int w, int h) {
     camera.resize(w, h);
+    Settings::SCREEN_WIDTH = w;
+    Settings::SCREEN_HEIGHT = h;
 }
 
 int main(int argc, char **argv) {
@@ -309,7 +307,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    Settings::selected_preset = Settings::Presets::PHASE_2_SOFT_SHADOWS;
+    Settings::selected_preset = Settings::Presets::PHASE_4_REFRACTION;
     Settings::selected_renderer = 2;
     Settings::applySelectedPreset();
 
@@ -326,6 +324,7 @@ int main(int argc, char **argv) {
     glutMotionFunc(motion);
     glutMouseFunc(mouse);
     key('?', 0, 0);
+    cout << "Settings preset set to: " << Settings::selected_preset << endl;
 
     camera.move(0., 0., -3.1);
     renderers.resize(5);
