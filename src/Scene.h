@@ -174,20 +174,7 @@ private:
 
     Ray computeRefractionRay(Ray ray, RaySceneIntersection &intersection) {
         float nL, nT;
-        if (ray.object_types[ray.object_types.size() - 1] == static_cast<unsigned int>(intersection.typeOfIntersectedObject) &&
-            ray.object_indices[ray.object_indices.size() - 1] == intersection.objectIndex) {
-            nL = ray.index_mediums[ray.index_mediums.size() - 1];
-            ray.index_mediums.pop_back();
-            ray.object_types.pop_back();
-            ray.object_indices.pop_back();
-            nT = ray.index_mediums[ray.index_mediums.size() - 1];
-        } else {
-            nL = ray.index_mediums[ray.index_mediums.size() - 1];
-            ray.index_mediums.push_back(intersection.material.index_medium);
-            ray.object_types.push_back(static_cast<unsigned int>(intersection.typeOfIntersectedObject));
-            ray.object_indices.push_back(intersection.objectIndex);
-            nT = ray.index_mediums[ray.index_mediums.size() - 1];
-        }
+        ray.getRayInOutIndexMediums(intersection.material.index_medium, intersection.typeOfIntersectedObject, intersection.objectIndex, nL, nT);
 
         // https://amrhmorsy.github.io/blog/2024/RefractionVectorCalculation/
         Vec3 L = ray.direction();
@@ -314,10 +301,11 @@ public:
         return color;
     }
 
-    Vec3 rayTraceIterative(Ray ray, float min_t, float max_t, int maxBounces) {
+    Vec3 rayTraceIterative(Ray ray, float min_t, float max_t, int max_bounces) {
         Vec3 color;
+        int bounces = 0;
 
-        for (int bounce = 0; bounce <= maxBounces; bounce++) {
+        for (bounces = 0; bounces <= max_bounces; bounces++) {
             RaySceneIntersection intersection = computeIntersection(ray, min_t, max_t, false);
             if (!intersection.intersectionExists) {
                 color = Vec3();
@@ -342,6 +330,7 @@ public:
         }
 
         return color;
+        // return Vec3(float(bounces) / 255.);
     }
 
     Vec3 rayTrace(Ray const &rayStart, float min_t = Settings::EPSILON, float max_t = FLT_MAX) {
@@ -692,7 +681,7 @@ public:
             s.material.specular_material = Vec3(1., 1., 0.);
             s.material.shininess = 16;
             s.material.transparency = 1.;
-            s.material.index_medium = 1.51;
+            s.material.index_medium = 1.;
         }
     }
 };

@@ -40,7 +40,7 @@ public:
 
     vector<Vec3> rayTraceFromCameraCPU(float _min_t, float _max_t) {
         cout << "Ray tracing a " << Settings::SCREEN_WIDTH << " x " << Settings::SCREEN_HEIGHT << " image (CPU) :" << endl;
-        Vec3 pos, dir;
+        Vec3 pos = cameraSpaceToWorldSpace(Vec3(0.));
         int n_pixels = Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT;
         vector<Vec3> image(n_pixels, Vec3(0, 0, 0));
 
@@ -58,8 +58,7 @@ public:
                 for (unsigned int s = 0; s < Settings::NSAMPLES; ++s) {
                     float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_WIDTH;
                     float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_HEIGHT;
-                    // this is a random uv that belongs to the pixel xy.
-                    screen_space_to_world_space_ray(u, v, pos, dir);
+                    Vec3 dir = screen_space_to_worldSpace(u, v) - pos;
                     Vec3 color = rayTrace(Ray(pos, dir), _min_t, _max_t);
                     image[x + y * Settings::SCREEN_WIDTH] += color;
                 }
@@ -84,6 +83,8 @@ private:
     GLuint m_ray_texture, m_random_texture, m_out_texture;
 
     void createTextures() {
+        m_camera_pos = cameraSpaceToWorldSpace(Vec3(0.));
+
         // rays data
         vector<float> rayTextureData(Settings::SCREEN_WIDTH * Settings::NSAMPLES * Settings::SCREEN_HEIGHT * 4);
         Vec3 dir;
@@ -93,7 +94,8 @@ private:
                     unsigned int i = y * Settings::SCREEN_WIDTH * Settings::NSAMPLES + x * Settings::NSAMPLES + z;
                     float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_WIDTH;
                     float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_HEIGHT;
-                    screen_space_to_world_space_ray(u, v, m_camera_pos, dir); // TODO: fix: ça casse la scène
+                    dir = screen_space_to_worldSpace(u, v) - m_camera_pos;
+                    dir.normalize();
                     rayTextureData[i * 4] = dir[0];
                     rayTextureData[i * 4 + 1] = dir[1];
                     rayTextureData[i * 4 + 2] = dir[2];
@@ -145,7 +147,18 @@ private:
         glBindImageTexture(2, m_random_texture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
     }
 
-    void updateSettings() {
+    void updateUniforms(float _min_t, float _max_t) {
+        m_shader.use();
+
+        // general uniforms
+        m_shader.set("imgOutput", 0);
+        m_shader.set("rayTexture", 1);
+        m_shader.set("randomTexture", 2);
+        m_shader.set("camera_pos", m_camera_pos);
+        m_shader.set("min_t", _min_t);
+        m_shader.set("max_t", _max_t);
+
+        // settings uniforms
         m_shader.set("settings.EPSILON", Settings::EPSILON);
         m_shader.set("settings.NSAMPLES", Settings::NSAMPLES);
         m_shader.set("settings.MAX_BOUNCES", Settings::MAX_BOUNCES);
@@ -165,9 +178,7 @@ private:
         m_shader.set("settings.KdTree.MAX_LEAF_SIZE", Settings::KdTree::MAX_LEAF_SIZE);
 
         m_shader.set("settings.Bonus.ENABLE_TEXTURES", Settings::Bonus::ENABLE_TEXTURES);
-    }
 
-    void updateSceneUniforms() {
         // objects uniforms
         GLuint nb_spheres = spheres.size();
         m_shader.set("nb_spheres", nb_spheres);
@@ -191,43 +202,64 @@ private:
         }
     }
 
-public:
-    vector<Vec3> rayTraceFromCameraGPU(float _min_t, float _max_t) {
-        auto begin = chrono::high_resolution_clock::now();
-        cout << "Ray tracing a " << Settings::SCREEN_WIDTH << " x " << Settings::SCREEN_HEIGHT << " image (GPU) :" << endl;
-
-        cout << "\tGenerating textures..." << endl;
-        createTextures();
-
-        // use and execute the shader
-        cout << "\tUpdating uniforms..." << endl;
-        m_shader.use();
-        m_shader.set("imgOutput", 0);
-        m_shader.set("rayTexture", 1);
-        m_shader.set("randomTexture", 2);
-
-        m_shader.set("camera_pos", m_camera_pos);
-        m_shader.set("min_t", _min_t);
-        m_shader.set("max_t", _max_t);
-
-        updateSettings();
-        updateSceneUniforms();
-
-        cout << "\tExecuting shader..." << endl;
-        m_shader.execute(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, Settings::NSAMPLES);
-
-        // retrieve the image
-        cout << "\tRetrieving the image..." << endl;
+    vector<Vec3> retrieveImage() {
         vector<Vec3> image(Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT);
         glBindTexture(GL_TEXTURE_2D, m_out_texture);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, image.data());
+        return image;
+    }
+
+public:
+    vector<Vec3> rayTraceFromCameraGPU(float _min_t, float _max_t) {
+        auto total_begin = chrono::high_resolution_clock::now();
+        std::chrono::_V2::system_clock::time_point begin, end;
+        int64_t elapsed;
+        cout << "Ray tracing a " << Settings::SCREEN_WIDTH << " x " << Settings::SCREEN_HEIGHT << " image (GPU) :" << endl;
+
+        // generate textures
+        cout << "\tGenerating textures..." << flush;
+        begin = chrono::high_resolution_clock::now();
+        createTextures();
+        end = chrono::high_resolution_clock::now();
+        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
+
+        // update the uniforms
+        cout << "\tUpdating uniforms..." << flush;
+        begin = chrono::high_resolution_clock::now();
+        updateUniforms(_min_t, _max_t);
+        end = chrono::high_resolution_clock::now();
+        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
+
+        // execute the shader
+        cout << "\tExecuting shader..." << flush;
+        begin = chrono::high_resolution_clock::now();
+        m_shader.execute(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, Settings::NSAMPLES);
+        end = chrono::high_resolution_clock::now();
+        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
+
+        // retrieve the image
+        cout << "\tRetrieving the image..." << flush;
+        begin = chrono::high_resolution_clock::now();
+        vector<Vec3> image = retrieveImage();
+        end = chrono::high_resolution_clock::now();
+        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
+
+        // delete the textures
+        cout << "\tDeleting textures..." << flush;
+        begin = chrono::high_resolution_clock::now();
         glDeleteTextures(1, &m_out_texture);
         glDeleteTextures(1, &m_ray_texture);
         glDeleteTextures(1, &m_random_texture);
+        end = chrono::high_resolution_clock::now();
+        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
 
-        auto end = chrono::high_resolution_clock::now();
-        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
-        cout << "\tDone in " << elapsed << " milliseconds." << endl;
+        elapsed = chrono::duration_cast<chrono::milliseconds>(end - total_begin).count();
+        cout << "\tTotal time: " << elapsed << "ms" << endl;
 
         return image;
     }

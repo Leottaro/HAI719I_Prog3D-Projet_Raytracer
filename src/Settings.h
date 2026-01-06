@@ -37,19 +37,19 @@ public:
     inline static std::string availableMeshToPath(Settings::AvailableMeshes mesh) {
         switch (mesh) {
         case Settings::AvailableMeshes::FEMALE01:
-            return "data/female01.off";
+            return "ressources/models/female01.off";
         case Settings::AvailableMeshes::FEMUR:
-            return "data/femur.off";
+            return "ressources/models/femur.off";
         case Settings::AvailableMeshes::KNOT:
-            return "data/knot.off";
+            return "ressources/models/knot.off";
         case Settings::AvailableMeshes::NEFERTITI:
-            return "data/nefertiti.off";
+            return "ressources/models/nefertiti.off";
         case Settings::AvailableMeshes::PEGASO:
-            return "data/pegaso.off";
+            return "ressources/models/pegaso.off";
         case Settings::AvailableMeshes::TRIANGLE:
-            return "data/triangle.off";
+            return "ressources/models/triangle.off";
         case Settings::AvailableMeshes::UNIT_SPHERE_N:
-            return "data/unit_sphere_n.off";
+            return "ressources/models/unit_sphere_n.off";
         default:
             return "";
         }
@@ -99,7 +99,7 @@ public:
         case Presets::PHASE_1:
             selected_renderer = 2;
             NSAMPLES = 16;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
@@ -116,7 +116,7 @@ public:
         case Presets::PHASE_2_NO_SHADOWS:
             selected_renderer = 2;
             NSAMPLES = 16;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
@@ -132,7 +132,7 @@ public:
         case Presets::PHASE_2_HARD_SHADOWS:
             selected_renderer = 2;
             NSAMPLES = 16;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
@@ -148,7 +148,7 @@ public:
         case Presets::PHASE_2_SOFT_SHADOWS:
             selected_renderer = 2;
             NSAMPLES = 16;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
@@ -164,7 +164,7 @@ public:
         case Presets::PHASE_3_REFLECTION:
             selected_renderer = 2;
             NSAMPLES = 16;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
@@ -180,7 +180,7 @@ public:
         case Presets::PHASE_3_NO_INTERPOLATION:
             selected_renderer = 3;
             NSAMPLES = 4;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NEFERTITI;
@@ -196,7 +196,7 @@ public:
         case Presets::PHASE_3_INTERPOLATION:
             selected_renderer = 3;
             NSAMPLES = 4;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NEFERTITI;
@@ -212,7 +212,7 @@ public:
         case Presets::PHASE_4_REFRACTION:
             selected_renderer = 2;
             NSAMPLES = 16;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NEFERTITI;
@@ -228,7 +228,7 @@ public:
         case Presets::PHASE_4_KDTREE:
             selected_renderer = 3;
             NSAMPLES = 16;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::KNOT;
@@ -243,7 +243,7 @@ public:
             break;
         case Presets::SHOWCASE_PERFORMANCE:
             NSAMPLES = 4;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::FEMALE01;
@@ -258,7 +258,7 @@ public:
             break;
         case Presets::SHOWCASE_QUALITY:
             NSAMPLES = 16;
-            MAX_BOUNCES = 1000;
+            MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::FEMUR;

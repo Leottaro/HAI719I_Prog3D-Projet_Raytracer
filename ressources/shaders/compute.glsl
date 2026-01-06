@@ -3,11 +3,9 @@ const float PI = 3.14159265359;
 const uint UINT_MAX = 0xFFFFFFFF;
 const float FLT_MAX = 3.402823466e+38;
 
-// ======================================================================================================
-// ============================================= STRUCTURES =============================================
-// ======================================================================================================
-
-// Pour uniforms
+// =====================================================================================================
+// ========================================= INPUTS STRUCTURES =========================================
+// =====================================================================================================
 
 struct PhongSettings {
   bool ENABLED;
@@ -88,51 +86,6 @@ struct Light {
   float powerCorrection;
 };
 
-// Pour calculs
-
-struct Ray {
-  vec3 pos;
-  vec3 dir;
-  uint nb_bounces;
-  float index_mediums[10];
-  uint object_types[10];
-  uint object_indices[10];
-};
-
-struct RaySphereIntersection {
-  bool intersectionExists;
-  float t;
-  float theta, phi;
-  vec3 intersection;
-  vec3 secondintersection;
-  vec3 normal;
-};
-struct RaySquareIntersection {
-  bool intersectionExists;
-  float t;
-  float u;
-  float v;
-  vec3 intersection;
-  vec3 normal;
-};
-struct RaySceneIntersection {
-  bool intersectionExists;
-  float t;
-  float u;
-  float v;
-  vec3 intersection;
-  vec3 normal;
-  Material material;
-  uint typeOfIntersectedObject;
-  uint objectIndex;
-  RaySphereIntersection raySphereIntersection;
-  RaySquareIntersection raySquareIntersection;
-};
-// const uint TriangleIntersection = 0;
-const uint SphereIntersection = 1;
-const uint SquareIntersection = 2;
-const uint LightIntersection = 3;
-
 // ======================================================================================================
 // =============================================== INPUTS ===============================================
 // ======================================================================================================
@@ -160,6 +113,109 @@ uniform Light lights[10];
 
 ivec3 screen_coords = ivec3(gl_GlobalInvocationID.xyz);
 
+// ======================================================================================================
+// ========================================= STRUCTURES HELPERS =========================================
+// ======================================================================================================
+
+const uint MAX_BOUNCES = 100;
+struct Ray {
+  vec3 pos;
+  vec3 dir;
+  uint nb_bounces;
+  float index_mediums[MAX_BOUNCES];
+  uint object_types[MAX_BOUNCES];
+  uint object_indices[MAX_BOUNCES];
+};
+Ray newRay(vec3 position, vec3 direction) {
+  Ray ray;
+  ray.pos = position;
+  ray.dir = normalize(direction);
+  ray.nb_bounces = 1;
+  ray.index_mediums[0] = settings.Material.AIR_INDEX_MEDIUM;
+  ray.object_types[0] = UINT_MAX;
+  ray.object_indices[0] = UINT_MAX;
+  return ray;
+}
+Ray newRay(vec3 position, vec3 direction, Ray input_ray) {
+  Ray ray;
+  ray.pos = position;
+  ray.dir = normalize(direction);
+  ray.nb_bounces = input_ray.nb_bounces;
+  ray.index_mediums = input_ray.index_mediums;
+  ray.object_types = input_ray.object_types;
+  ray.object_indices = input_ray.object_indices;
+  return ray;
+}
+
+vec2 getRayInOutIndexMediums(inout Ray ray, in float index_medium, in uint object_type, in uint object_index) {
+  if(ray.object_types[ray.nb_bounces - 1] == object_type && ray.object_indices[ray.nb_bounces - 1] == object_index) {
+    ray.nb_bounces--;
+    return vec2(ray.index_mediums[ray.nb_bounces], ray.index_mediums[ray.nb_bounces - 1]);
+  } else {
+    ray.index_mediums[ray.nb_bounces] = index_medium;
+    ray.object_types[ray.nb_bounces] = object_type;
+    ray.object_indices[ray.nb_bounces] = object_index;
+    ray.nb_bounces++;
+    return vec2(ray.index_mediums[ray.nb_bounces - 2], ray.index_mediums[ray.nb_bounces - 1]);
+  }
+  // return vec2(nL, nT);
+}
+
+struct RaySphereIntersection {
+  bool intersectionExists;
+  float t;
+  float theta, phi;
+  vec3 intersection;
+  vec3 secondintersection;
+  vec3 normal;
+};
+RaySphereIntersection newRaySphereIntersection() {
+  RaySphereIntersection intersection;
+  intersection.intersectionExists = false;
+  intersection.t = FLT_MAX;
+  return intersection;
+}
+
+struct RaySquareIntersection {
+  bool intersectionExists;
+  float t;
+  float u;
+  float v;
+  vec3 intersection;
+  vec3 normal;
+};
+RaySquareIntersection newRaySquareIntersection() {
+  RaySquareIntersection intersection;
+  intersection.intersectionExists = false;
+  intersection.t = FLT_MAX;
+  return intersection;
+}
+
+struct RaySceneIntersection {
+  bool intersectionExists;
+  float t;
+  float u;
+  float v;
+  vec3 intersection;
+  vec3 normal;
+  Material material;
+  uint typeOfIntersectedObject;
+  uint objectIndex;
+  RaySphereIntersection raySphereIntersection;
+  RaySquareIntersection raySquareIntersection;
+};
+RaySceneIntersection newRaySceneIntersection(in float _max_t) {
+  RaySceneIntersection intersection;
+  intersection.intersectionExists = false;
+  intersection.t = _max_t;
+  return intersection;
+}
+
+// const uint TriangleIntersection = 0;
+const uint SphereIntersection = 1;
+const uint SquareIntersection = 2;
+const uint LightIntersection = 3;
+
 // =====================================================================================================
 // ============================================= FUNCTIONS =============================================
 // =====================================================================================================
@@ -172,7 +228,7 @@ vec3 sampleRandomValues(uint shadow_ray_i) {
   return imageLoad(randomTexture, ivec2(x, y)).xyz;
 }
 
-vec3 sphericalCoordinatesToEuclidean(float theta, float phi) {
+vec3 sphericalCoordinatesToEuclidean(in float theta, in float phi) {
   float sinPhi = sin(phi);
   float x = sinPhi * sin(theta);
   float y = cos(phi);
@@ -181,11 +237,11 @@ vec3 sphericalCoordinatesToEuclidean(float theta, float phi) {
   return vec3(x, y, z);
 }
 
-vec3 euclideanCoordinatesToSpherical(vec3 pos) {
+vec3 euclideanCoordinatesToSpherical(in vec3 pos) {
   float R = length(pos);
-  float theta = atan(pos.x, pos.z); // azimuth around y-axis, 0..2π // TODO: atan2 ??
-  if(theta < 0.0) {
-    theta += 2.0 * PI;
+  float theta = atan(pos.x, pos.z); // azimuth around y-axis, 0..2π
+  if(theta < 0.) {
+    theta += 2. * PI;
   }
 
   float phi = acos(pos.y / R); // polar angle from +y axis, 0..π
@@ -193,37 +249,16 @@ vec3 euclideanCoordinatesToSpherical(vec3 pos) {
   return vec3(theta, phi, R);
 }
 
-vec3 getLightCentralPos(Light light) {
+vec3 getLightCentralPos(in Light light) {
   if(light.type == LightType_Quad)
     return light.quad.m_bottom_left + 0.5 * (light.quad.m_right_vector + light.quad.m_up_vector);
   if(light.type == LightType_Spherical)
     return light.sphere.m_center;
 }
 
-Ray newRay(vec3 position, vec3 direction) {
-  Ray ray;
-  ray.pos = position;
-  ray.dir = normalize(direction);
-  ray.index_mediums[0] = settings.Material.AIR_INDEX_MEDIUM;
-  ray.object_types[0] = UINT_MAX;
-  ray.object_indices[0] = UINT_MAX;
-  return ray;
-}
-
-Ray newRay(vec3 position, vec3 direction, Ray input_ray) {
-  Ray ray;
-  ray.pos = position;
-  ray.dir = normalize(direction);
-  ray.nb_bounces = input_ray.nb_bounces;
-  ray.index_mediums = input_ray.index_mediums;
-  ray.object_types = input_ray.object_types;
-  ray.object_indices = input_ray.object_indices;
-  return ray;
-}
-
 // INTERSECTIONS
 
-void setRaySphereIntersection(inout RaySceneIntersection result, RaySphereIntersection intersection, Material material, uint object_i) {
+void setRaySphereIntersection(inout RaySceneIntersection result, in RaySphereIntersection intersection, in Material material, in uint object_i) {
   result.intersectionExists = true;
   result.t = intersection.t;
   result.u = intersection.theta / (2. * PI);
@@ -235,7 +270,7 @@ void setRaySphereIntersection(inout RaySceneIntersection result, RaySphereInters
   result.objectIndex = object_i;
   result.raySphereIntersection = intersection;
 }
-void setRaySquareIntersection(inout RaySceneIntersection result, RaySquareIntersection intersection, Material material, uint object_i) {
+void setRaySquareIntersection(inout RaySceneIntersection result, in RaySquareIntersection intersection, in Material material, in uint object_i) {
   result.intersectionExists = true;
   result.t = intersection.t;
   result.u = intersection.u;
@@ -248,7 +283,7 @@ void setRaySquareIntersection(inout RaySceneIntersection result, RaySquareInters
   result.raySquareIntersection = intersection;
 }
 
-RaySquareIntersection intersectSquare(Ray ray, Square square, bool can_intersect_behind) {
+RaySquareIntersection intersectSquare(in Ray ray, in Square square, in bool can_intersect_behind) {
   RaySquareIntersection intersection = RaySquareIntersection(false, 0., 0., 0., vec3(0.), vec3(0.));
 
   const vec3 O = ray.pos;
@@ -280,12 +315,12 @@ RaySquareIntersection intersectSquare(Ray ray, Square square, bool can_intersect
   return intersection;
 }
 
-RaySphereIntersection intersectSphere(Ray ray, Sphere sphere) {
-  RaySphereIntersection intersection = RaySphereIntersection(false, 0., 0., 0., vec3(0.), vec3(0.), vec3(0.));
+RaySphereIntersection intersectSphere(in Ray ray, in Sphere sphere) {
+  RaySphereIntersection intersection = newRaySphereIntersection();
 
-  const vec3 O = ray.pos;
-  const vec3 D = ray.dir;
-  const vec3 C = sphere.m_center;
+  vec3 O = ray.pos;
+  vec3 D = ray.dir;
+  vec3 C = sphere.m_center;
   float r = sphere.m_radius;
   vec3 CO = O - C;
 
@@ -302,9 +337,6 @@ RaySphereIntersection intersectSphere(Ray ray, Sphere sphere) {
   float t = (-b - sqrt_delta) / (2. * a);
   float t2 = (-b + sqrt_delta) / (2. * a);
   bool is_outside = t >= settings.EPSILON;
-  // if (!is_outside) {
-  //     return intersection;
-  // }
 
   intersection.intersectionExists = true;
   intersection.t = is_outside ? t : t2;
@@ -313,18 +345,16 @@ RaySphereIntersection intersectSphere(Ray ray, Sphere sphere) {
   intersection.secondintersection = is_outside ? O + t2 * D : O + t * D;
 
   vec3 spherical_pos = euclideanCoordinatesToSpherical(intersection.normal);
-  intersection.theta = spherical_pos[0];
-  intersection.phi = spherical_pos[1];
+  intersection.theta = spherical_pos.x;
+  intersection.phi = spherical_pos.y;
 
   return intersection;
 }
 
 // SCENE.H
 
-RaySceneIntersection computeIntersection(Ray ray, float min_t, float max_t, bool intersect_lights) {
-  RaySceneIntersection result;
-  result.intersectionExists = false;
-  result.t = max_t;
+RaySceneIntersection computeIntersection(in Ray ray, in float min_t, in float max_t, in bool intersect_lights) {
+  RaySceneIntersection result = newRaySceneIntersection(max_t);
 
   for(uint i = 0; i < nb_spheres; i++) {
     RaySphereIntersection intersection = intersectSphere(ray, spheres[i]);
@@ -370,42 +400,31 @@ RaySceneIntersection computeIntersection(Ray ray, float min_t, float max_t, bool
   return result;
 }
 
-Ray computeReflectionRay(Ray ray, RaySceneIntersection intersection) {
+Ray computeReflectionRay(in Ray ray, in RaySceneIntersection intersection) {
   // https://en.wikipedia.org/wiki/Specular_reflection#Vector_formulation
-  const vec3 di = ray.dir;
-  const vec3 dn = intersection.normal;
+  vec3 di = ray.dir;
+  vec3 dn = intersection.normal;
 
-  vec3 v_reflect = normalize(di - 2. * dn * dot(di, dn));
+  vec3 v_reflect = di - 2. * dn * dot(di, dn);
+  normalize(v_reflect);
   Ray reflection_ray = newRay(intersection.intersection, v_reflect, ray);
   return reflection_ray;
 }
 
-Ray computeRefractionRay(Ray ray, RaySceneIntersection intersection) {
-  float nL, nT;
-  if(ray.object_types[ray.nb_bounces - 1] == intersection.typeOfIntersectedObject && ray.object_indices[ray.nb_bounces - 1] == intersection.objectIndex) {
-    nL = ray.index_mediums[ray.nb_bounces - 1];
-    ray.nb_bounces -= 1;
-    nT = ray.index_mediums[ray.nb_bounces - 1];
-  } else {
-    nL = ray.index_mediums[ray.nb_bounces - 1];
-    ray.index_mediums[ray.nb_bounces] = intersection.material.index_medium;
-    ray.object_types[ray.nb_bounces] = intersection.typeOfIntersectedObject;
-    ray.object_indices[ray.nb_bounces] = intersection.objectIndex;
-    ray.nb_bounces += 1;
-    nT = ray.index_mediums[ray.nb_bounces - 1];
-  }
+Ray computeRefractionRay(in Ray ray, in RaySceneIntersection intersection) {
+  vec2 in_out_mediums = getRayInOutIndexMediums(ray, intersection.material.index_medium, intersection.typeOfIntersectedObject, intersection.objectIndex);
 
   // https://amrhmorsy.github.io/blog/2024/RefractionVectorCalculation/
-  const vec3 L = ray.dir;
-  const vec3 N = intersection.normal;
+  vec3 L = ray.dir;
+  vec3 N = intersection.normal;
 
   vec3 LparallelN = dot(N, L) * N;
   vec3 LperpendicularN = L - LparallelN;
   float sin_thetaL = length(LperpendicularN);
 
   // TODO: https://en.wikipedia.org/wiki/Fresnel_equations
-  if(sin_thetaL <= nT / nL) {
-    float r = nL / nT;
+  if(sin_thetaL <= in_out_mediums.y / in_out_mediums.x) {
+    float r = in_out_mediums.x / in_out_mediums.y;
     float c = dot(N, L);
     vec3 T = N * (-r * c - sqrt(1. - r * r * (1. - c * c))) + L * r; // v_refract
     Ray refraction_ray = newRay(intersection.intersection, T, ray);
@@ -415,7 +434,7 @@ Ray computeRefractionRay(Ray ray, RaySceneIntersection intersection) {
   }
 }
 
-float computeShadowIndex(Ray ray, RaySceneIntersection intersection, Light light) {
+float computeShadowIndex(in Ray ray, in RaySceneIntersection intersection, in Light light) {
   uint shadow_count = 0;
   for(uint i = 0; i < settings.Phong.SHADOW_RAYS; i++) {
     vec3 randoms = sampleRandomValues(i);
@@ -444,7 +463,7 @@ float computeShadowIndex(Ray ray, RaySceneIntersection intersection, Light light
   return float(shadow_count) / float(settings.Phong.SHADOW_RAYS);
 }
 
-vec3 phong(Ray ray, RaySceneIntersection intersection) {
+vec3 phong(in Ray ray, in RaySceneIntersection intersection) {
   const Material material = intersection.material;
   const vec3 P = intersection.intersection;
   // const vec3 kd = settings.Bonus.ENABLE_TEXTURES && material.image_id >= 0 && !images[material.image_id].data.empty() ? images[material.image_id].getPixel(intersection.u, intersection.v) : material.diffuse_material;
@@ -491,10 +510,11 @@ vec3 phong(Ray ray, RaySceneIntersection intersection) {
   return Ia + Id + Is;
 }
 
-vec3 rayTraceIterative(Ray _ray, float _min_t, float _max_t) {
+vec3 rayTraceIterative(in Ray _ray, in float _min_t, in float _max_t) {
   vec3 color = vec3(0.);
+  uint bounces = 0;
 
-  for(uint bounce = 0; bounce <= settings.MAX_BOUNCES; bounce++) {
+  for(bounces = 0; bounces <= MAX_BOUNCES; bounces++) {
     RaySceneIntersection intersection = computeIntersection(_ray, settings.EPSILON, max_t, false);
     if(!intersection.intersectionExists) {
       color = vec3(0.);
@@ -514,6 +534,7 @@ vec3 rayTraceIterative(Ray _ray, float _min_t, float _max_t) {
   }
 
   return color;
+  // return vec3(float(bounces) / 255.);
 }
 
 void main() {

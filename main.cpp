@@ -222,14 +222,16 @@ void key(unsigned char keyPressed, int x, int y) {
     case 'r':
         camera.apply();
         rays.clear();
-        writePPM(
-            renderers[Settings::selected_renderer].rayTraceFromCameraCPU(camera.getNearPlane(), camera.getFarPlane()), "rendu.ppm");
+        writePPM(renderers[Settings::selected_renderer].rayTraceFromCameraCPU(camera.getNearPlane(), camera.getFarPlane()), "rendu.ppm");
+        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
         break;
     case 'R':
         camera.apply();
         rays.clear();
-        writePPM(
-            renderers[Settings::selected_renderer].rayTraceFromCameraGPU(camera.getNearPlane(), camera.getFarPlane()), "renduGPU.ppm");
+        writePPM(renderers[Settings::selected_renderer].rayTraceFromCameraGPU(camera.getNearPlane(), camera.getFarPlane()), "renduGPU.ppm");
+        break;
+    case '-':
+        Settings::selected_renderer = (Settings::selected_renderer + renderers.size() - 1) % renderers.size();
         break;
     case '+':
         Settings::selected_renderer = (Settings::selected_renderer + 1) % renderers.size();
@@ -241,7 +243,7 @@ void key(unsigned char keyPressed, int x, int y) {
         cout << "Settings preset set to: " << Settings::selected_preset << endl;
         break;
     case 'P':
-        Settings::selected_preset = static_cast<Settings::Presets>((static_cast<int>(Settings::selected_preset) - 1 + Settings::NB_PRESETS) % Settings::NB_PRESETS);
+        Settings::selected_preset = static_cast<Settings::Presets>((static_cast<int>(Settings::selected_preset) + Settings::NB_PRESETS - 1) % Settings::NB_PRESETS);
         Settings::applySelectedPreset();
         init();
         cout << "Settings preset set to: " << Settings::selected_preset << endl;
@@ -327,12 +329,6 @@ int main(int argc, char **argv) {
     cout << "Settings preset set to: " << Settings::selected_preset << endl;
 
     camera.move(0., 0., -3.1);
-    renderers.resize(5);
-    renderers[0].setup_single_sphere();
-    renderers[1].setup_single_square();
-    renderers[2].setup_cornell_box();
-    renderers[3].setup_single_mesh();
-    renderers[4].setup_refraction_test();
 
     glutMainLoop();
     return EXIT_SUCCESS;

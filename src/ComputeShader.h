@@ -27,7 +27,8 @@ public:
         std::ifstream compute_file;
         compute_file.open(_compute_path);
         if (!compute_file.is_open()) {
-            throw std::runtime_error("ERROR::COMPUTE_SHADER::FILE_NOT_SUCCESFULLY_OPENED: " + _compute_path);
+            std::cerr << "ERROR::COMPUTE_SHADER::FILE_NOT_SUCCESFULLY_OPENED: " << _compute_path << std::endl;
+            return;
         }
 
         std::stringstream compute_stream;
@@ -46,7 +47,8 @@ public:
         glGetShaderiv(compute, GL_COMPILE_STATUS, &success);
         if (!success) {
             glGetShaderInfoLog(compute, 512, NULL, infoLog);
-            throw std::runtime_error("ERROR::COMPUTE_SHADER::COMPILATION_FAILED\n" + std::string(infoLog));
+            std::cout << "ERROR::COMPUTE_SHADER::COMPILATION_FAILED\n"
+                      << infoLog << std::endl;
         };
 
         m_shader_id = glCreateProgram();
@@ -55,7 +57,8 @@ public:
         glGetProgramiv(m_shader_id, GL_LINK_STATUS, &success);
         if (!success) {
             glGetProgramInfoLog(m_shader_id, 512, NULL, infoLog);
-            throw std::runtime_error("ERROR::COMPUTE_SHADER::LINKING_FAILED\n" + std::string(infoLog));
+            std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
+                      << infoLog << std::endl;
         }
 
         glDeleteShader(compute);
@@ -65,9 +68,9 @@ public:
         glUseProgram(m_shader_id);
     }
 
-    void execute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z, GLbitfield barriers = GL_SHADER_IMAGE_ACCESS_BARRIER_BIT) const {
+    void execute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z) const {
         glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
-        glMemoryBarrier(barriers);
+        glFinish();
     }
 
     void set(const std::string &name, GLboolean value) const {
