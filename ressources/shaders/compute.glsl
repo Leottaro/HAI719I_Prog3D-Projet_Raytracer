@@ -93,15 +93,14 @@ struct Light {
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(binding = 0, rgba32f) uniform image2D imgOutput;
-layout(binding = 1, rgba32f) uniform image2D rayTexture; // width of screen_width * NSAMPLES and height of screen_height
-layout(binding = 2, rgba32f) uniform image2D randomTexture; // width of screen_width * NSAMPLES and height of screen_height * (SHADOW_RAYS + 1)
 
-uniform vec3 camera_pos;
+uniform dvec2 nearAndFarPlanes;
+uniform dmat4 modelviewInverse;
+uniform dmat4 projectionInverse;
 uniform float min_t;
 uniform float max_t;
 
 uniform Settings settings;
-
 uniform uint nb_spheres;
 uniform Sphere spheres[10];
 uniform uint nb_squares;
@@ -112,6 +111,7 @@ uniform Light lights[10];
 // uniform Mesh meshes;
 
 ivec3 screen_coords = ivec3(gl_GlobalInvocationID.xyz);
+uint seed = uint(screen_coords.y * settings.SCREEN_WIDTH * settings.NSAMPLES + screen_coords.x * settings.NSAMPLES + screen_coords.z);
 
 // ======================================================================================================
 // ========================================= STRUCTURES HELPERS =========================================
@@ -222,10 +222,53 @@ const uint LightIntersection = 3;
 
 // HELPERS
 
-vec3 sampleRandomValues(uint shadow_ray_i) {
-  uint x = screen_coords.x * settings.NSAMPLES + screen_coords.z;
-  uint y = screen_coords.y * (settings.Phong.SHADOW_RAYS + 1) + shadow_ray_i;
-  return imageLoad(randomTexture, ivec2(x, y)).xyz;
+  // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+  // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
+uint hash(uint x) {
+  x += (x << 10u);
+  x ^= (x >> 6u);
+  x += (x << 3u);
+  x ^= (x >> 11u);
+  x += (x << 15u);
+  return x;
+}
+
+  // Compound versions of the hashing algorithm I whipped together.
+uint hash(uvec2 v) {
+  return hash(v.x ^ hash(v.y));
+}
+uint hash(uvec3 v) {
+  return hash(v.x ^ hash(v.y) ^ hash(v.z));
+}
+uint hash(uvec4 v) {
+  return hash(v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w));
+}
+
+  // Construct a float with half-open range [0:1] using low 23 bits.
+  // All zeroes yields 0.0, all ones yields the next smallest representable value below 1.0.
+float floatConstruct(uint m) {
+  const uint ieeeMantissa = 0x007FFFFFu; // binary32 mantissa bitmask
+  const uint ieeeOne = 0x3F800000u; // 1.0 in IEEE binary32
+
+  m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
+  m |= ieeeOne;                          // Add fractional part to 1.0
+
+  float f = uintBitsToFloat(m);       // Range [1:2]
+  return f - 1.0;                        // Range [0:1]
+}
+
+  // Pseudo-random value in half-open range [0:1].
+float random(float x) {
+  return floatConstruct(hash(floatBitsToUint(x)));
+}
+float random(vec2 v) {
+  return floatConstruct(hash(floatBitsToUint(v)));
+}
+float random(vec3 v) {
+  return floatConstruct(hash(floatBitsToUint(v)));
+}
+float random(vec4 v) {
+  return floatConstruct(hash(floatBitsToUint(v)));
 }
 
 vec3 sphericalCoordinatesToEuclidean(in float theta, in float phi) {
@@ -437,19 +480,18 @@ Ray computeRefractionRay(in Ray ray, in RaySceneIntersection intersection) {
 float computeShadowIndex(in Ray ray, in RaySceneIntersection intersection, in Light light) {
   uint shadow_count = 0;
   for(uint i = 0; i < settings.Phong.SHADOW_RAYS; i++) {
-    vec3 randoms = sampleRandomValues(i);
     vec3 sampled_pos;
     if(settings.Phong.SHADOW_RAYS == 1) {
       sampled_pos = getLightCentralPos(light);
     } else {
       if(light.type == LightType_Spherical) {
-        float theta = 2. * PI * randoms.x;
-        float phi = PI * randoms.y;
-        float r = light.sphere.m_radius * sqrt(randoms.z);
+        float theta = 2. * PI * random(vec4(screen_coords, i * 3));
+        float phi = PI * random(vec4(screen_coords, i * 3 + 1));
+        float r = light.sphere.m_radius * sqrt(random(vec4(screen_coords, i * 3 + 2)));
         sampled_pos = light.sphere.m_center + r * sphericalCoordinatesToEuclidean(theta, phi);
       } else {
-        float u = randoms.x;
-        float r = randoms.y;
+        float u = random(vec4(screen_coords, i * 3));
+        float r = random(vec4(screen_coords, i * 3 + 1));
         sampled_pos = light.quad.m_bottom_left + u * light.quad.m_up_vector + r * light.quad.m_right_vector;
       }
     }
@@ -515,7 +557,7 @@ vec3 rayTraceIterative(in Ray _ray, in float _min_t, in float _max_t) {
   uint bounces = 0;
 
   for(bounces = 0; bounces <= MAX_BOUNCES; bounces++) {
-    RaySceneIntersection intersection = computeIntersection(_ray, settings.EPSILON, max_t, false);
+    RaySceneIntersection intersection = computeIntersection(_ray, settings.EPSILON, _max_t, false);
     if(!intersection.intersectionExists) {
       color = vec3(0.);
       break;
@@ -538,10 +580,17 @@ vec3 rayTraceIterative(in Ray _ray, in float _min_t, in float _max_t) {
 }
 
 void main() {
-  ivec2 ray_coords = ivec2(screen_coords.x * settings.NSAMPLES + screen_coords.z, screen_coords.y);
-  vec3 ray_direction = imageLoad(rayTexture, ray_coords).xyz;
+  // ray origin
+  dvec4 origin_temp = modelviewInverse * dvec4(0., 0., 0., 1.);
+  vec3 origin = vec3(origin_temp.xyz / origin_temp.w);
 
-  Ray ray = newRay(camera_pos, ray_direction);
+  // ray direction
+  vec2 randoms = vec2(random(vec4(screen_coords, 0)), random(vec4(screen_coords, 1)));
+  vec2 uv = (screen_coords.xy + randoms) / vec2(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT);
+  dvec4 direction_temp = modelviewInverse * projectionInverse * dvec4(2. * uv.x - 1., -(2. * uv.y - 1.), nearAndFarPlanes.x, 1.);
+  vec3 direction = normalize(vec3(direction_temp.xyz / direction_temp.w) - origin);
+
+  Ray ray = newRay(origin, direction);
   vec3 color = imageLoad(imgOutput, screen_coords.xy).rgb;
   color += rayTraceIterative(ray, min_t, max_t) / settings.NSAMPLES;
   imageStore(imgOutput, screen_coords.xy, vec4(color, 1.));

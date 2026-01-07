@@ -78,42 +78,12 @@ public:
 
 private:
     ComputeShader m_shader;
-    Vec3 m_camera_pos;
-
-    GLuint m_ray_texture, m_random_texture, m_out_texture;
+    GLuint m_out_texture;
 
     void createTextures() {
-        m_camera_pos = cameraSpaceToWorldSpace(Vec3(0.));
-
-        // rays data
-        vector<float> rayTextureData(Settings::SCREEN_WIDTH * Settings::NSAMPLES * Settings::SCREEN_HEIGHT * 4);
-        Vec3 dir;
-        for (unsigned int y = 0; y < Settings::SCREEN_HEIGHT; y++) {
-            for (unsigned int x = 0; x < Settings::SCREEN_WIDTH; x++) {
-                for (unsigned int z = 0; z < Settings::NSAMPLES; ++z) {
-                    unsigned int i = y * Settings::SCREEN_WIDTH * Settings::NSAMPLES + x * Settings::NSAMPLES + z;
-                    float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_WIDTH;
-                    float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_HEIGHT;
-                    dir = screen_space_to_worldSpace(u, v) - m_camera_pos;
-                    dir.normalize();
-                    rayTextureData[i * 4] = dir[0];
-                    rayTextureData[i * 4 + 1] = dir[1];
-                    rayTextureData[i * 4 + 2] = dir[2];
-                    rayTextureData[i * 4 + 3] = 0.;
-                }
-            }
-        }
-
-        // randoms data
-        vector<float> randomTextureData(Settings::SCREEN_WIDTH * Settings::NSAMPLES * Settings::SCREEN_HEIGHT * (Settings::Phong::SHADOW_RAYS + 1) * 4);
-        for (unsigned int i = 0; i < Settings::SCREEN_WIDTH * Settings::NSAMPLES * Settings::SCREEN_HEIGHT * (Settings::Phong::SHADOW_RAYS + 1); i++) {
-            randomTextureData[i * 4] = float(rand()) / RAND_MAX;
-            randomTextureData[i * 4 + 1] = float(rand()) / RAND_MAX;
-            randomTextureData[i * 4 + 2] = float(rand()) / RAND_MAX;
-            randomTextureData[i * 4 + 3] = 0.;
-        }
-
         // Create the output texture
+        cout << "\tCreating texture..." << flush;
+        auto begin = chrono::high_resolution_clock::now();
         glGenTextures(1, &m_out_texture);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, m_out_texture);
@@ -123,42 +93,46 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
         glBindImageTexture(0, m_out_texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-
-        // Create the rays directions
-        glGenTextures(1, &m_ray_texture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, m_ray_texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Settings::SCREEN_WIDTH * Settings::NSAMPLES, Settings::SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, rayTextureData.data());
-        glBindImageTexture(1, m_ray_texture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
-
-        // Create random texture
-        glGenTextures(1, &m_random_texture);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, m_random_texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Settings::SCREEN_WIDTH * Settings::NSAMPLES, Settings::SCREEN_HEIGHT * (Settings::Phong::SHADOW_RAYS + 1), 0, GL_RGBA, GL_FLOAT, randomTextureData.data());
-        glBindImageTexture(2, m_random_texture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+        auto end = chrono::high_resolution_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
     }
 
-    void updateUniforms(float _min_t, float _max_t) {
-        m_shader.use();
+    void deleteTextures() {
+        cout << "\tDeleting textures..." << flush;
+        auto begin = chrono::high_resolution_clock::now();
+        glDeleteTextures(1, &m_out_texture);
+        auto end = chrono::high_resolution_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
+    }
 
-        // general uniforms
+    void updateGeneralUniforms(float _min_t, float _max_t) {
         m_shader.set("imgOutput", 0);
-        m_shader.set("rayTexture", 1);
-        m_shader.set("randomTexture", 2);
-        m_shader.set("camera_pos", m_camera_pos);
+        m_shader.set("randomTexture2", 1);
+
+        GLdouble projection[16];
+        GLdouble projectionInverse[16];
+        glMatrixMode(GL_PROJECTION);
+        glGetDoublev(GL_PROJECTION_MATRIX, projection);
+        gluInvertMatrix(projection, projectionInverse);
+        GLdouble nearAndFarPlanes[2];
+        glGetDoublev(GL_DEPTH_RANGE, nearAndFarPlanes);
+        GLdouble modelview[16];
+        GLdouble modelviewInverse[16];
+        glMatrixMode(GL_MODELVIEW);
+        glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+        gluInvertMatrix(modelview, modelviewInverse);
+
+        m_shader.set("nearAndFarPlanes", nearAndFarPlanes[0], nearAndFarPlanes[1]);
+        m_shader.set("projectionInverse", projectionInverse);
+        m_shader.set("modelviewInverse", modelviewInverse);
+
         m_shader.set("min_t", _min_t);
         m_shader.set("max_t", _max_t);
+    }
 
-        // settings uniforms
+    void updateSettingsUniforms() {
         m_shader.set("settings.EPSILON", Settings::EPSILON);
         m_shader.set("settings.NSAMPLES", Settings::NSAMPLES);
         m_shader.set("settings.MAX_BOUNCES", Settings::MAX_BOUNCES);
@@ -178,8 +152,9 @@ private:
         m_shader.set("settings.KdTree.MAX_LEAF_SIZE", Settings::KdTree::MAX_LEAF_SIZE);
 
         m_shader.set("settings.Bonus.ENABLE_TEXTURES", Settings::Bonus::ENABLE_TEXTURES);
+    }
 
-        // objects uniforms
+    void updateSceneUniforms() {
         GLuint nb_spheres = spheres.size();
         m_shader.set("nb_spheres", nb_spheres);
         for (unsigned int i = 0; i < nb_spheres; i++) {
@@ -202,63 +177,58 @@ private:
         }
     }
 
+    void updateUniforms(float _min_t, float _max_t) {
+        cout << "\tUpdating uniforms..." << flush;
+        auto begin = chrono::high_resolution_clock::now();
+
+        m_shader.use();
+        updateGeneralUniforms(_min_t, _max_t);
+        updateSettingsUniforms();
+        updateSceneUniforms();
+
+        auto end = chrono::high_resolution_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
+    }
+
+    void executeShader() {
+        cout << "\tExecuting shader..." << flush;
+        auto begin = chrono::high_resolution_clock::now();
+
+        m_shader.execute(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, Settings::NSAMPLES);
+
+        auto end = chrono::high_resolution_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
+    }
+
     vector<Vec3> retrieveImage() {
+        cout << "\tRetrieving the image..." << flush;
+        auto begin = chrono::high_resolution_clock::now();
+
         vector<Vec3> image(Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT);
         glBindTexture(GL_TEXTURE_2D, m_out_texture);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, image.data());
+
+        auto end = chrono::high_resolution_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
         return image;
     }
 
 public:
     vector<Vec3> rayTraceFromCameraGPU(float _min_t, float _max_t) {
-        auto total_begin = chrono::high_resolution_clock::now();
-        std::chrono::_V2::system_clock::time_point begin, end;
-        int64_t elapsed;
+        auto begin = chrono::high_resolution_clock::now();
         cout << "Ray tracing a " << Settings::SCREEN_WIDTH << " x " << Settings::SCREEN_HEIGHT << " image (GPU) :" << endl;
 
-        // generate textures
-        cout << "\tGenerating textures..." << flush;
-        begin = chrono::high_resolution_clock::now();
         createTextures();
-        end = chrono::high_resolution_clock::now();
-        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
-        cout << "\tDone in " << elapsed << "ms" << endl;
-
-        // update the uniforms
-        cout << "\tUpdating uniforms..." << flush;
-        begin = chrono::high_resolution_clock::now();
         updateUniforms(_min_t, _max_t);
-        end = chrono::high_resolution_clock::now();
-        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
-        cout << "\tDone in " << elapsed << "ms" << endl;
-
-        // execute the shader
-        cout << "\tExecuting shader..." << flush;
-        begin = chrono::high_resolution_clock::now();
-        m_shader.execute(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, Settings::NSAMPLES);
-        end = chrono::high_resolution_clock::now();
-        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
-        cout << "\tDone in " << elapsed << "ms" << endl;
-
-        // retrieve the image
-        cout << "\tRetrieving the image..." << flush;
-        begin = chrono::high_resolution_clock::now();
+        executeShader();
         vector<Vec3> image = retrieveImage();
-        end = chrono::high_resolution_clock::now();
-        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
-        cout << "\tDone in " << elapsed << "ms" << endl;
+        deleteTextures();
 
-        // delete the textures
-        cout << "\tDeleting textures..." << flush;
-        begin = chrono::high_resolution_clock::now();
-        glDeleteTextures(1, &m_out_texture);
-        glDeleteTextures(1, &m_ray_texture);
-        glDeleteTextures(1, &m_random_texture);
-        end = chrono::high_resolution_clock::now();
-        elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
-        cout << "\tDone in " << elapsed << "ms" << endl;
-
-        elapsed = chrono::duration_cast<chrono::milliseconds>(end - total_begin).count();
+        auto end = chrono::high_resolution_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
         cout << "\tTotal time: " << elapsed << "ms" << endl;
 
         return image;

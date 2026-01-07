@@ -93,12 +93,12 @@ public:
         glUniform3fv(glGetUniformLocation(m_shader_id, name.c_str()), 1, value.valuePtr());
     }
 
-    void set(const std::string &name, const GLdouble value[]) const {
-        glUniformMatrix4dv(glGetUniformLocation(m_shader_id, name.c_str()), 1, false, value);
+    void set(const std::string &name, const GLdouble v0, const GLdouble v1) const {
+        glUniform2d(glGetUniformLocation(m_shader_id, name.c_str()), v0, v1);
     }
 
-    void set(const std::string &name, const GLfloat value[]) const {
-        glUniformMatrix4fv(glGetUniformLocation(m_shader_id, name.c_str()), 1, false, value);
+    void set(const std::string &name, const GLdouble value[]) const {
+        glUniformMatrix4dv(glGetUniformLocation(m_shader_id, name.c_str()), 1, false, value);
     }
 
     void set(const std::string &name, const Material &value) const {
