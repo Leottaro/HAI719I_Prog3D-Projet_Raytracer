@@ -134,6 +134,31 @@ public:
         set(name + ".quad", value.quad);
         set(name + ".powerCorrection", value.powerCorrection);
     }
+
+    void set(const std::string &name, const MeshVertex &value) const {
+        set(name + ".position", value.position);
+        set(name + ".normal", value.normal);
+        set(name + ".u", value.u);
+        set(name + ".v", value.v);
+    }
+
+    void set(const std::string &name, const MeshTriangle &value) const {
+        set(name + ".v0", value.v[0]);
+        set(name + ".v1", value.v[1]);
+        set(name + ".v2", value.v[2]);
+    }
+
+    void set(const std::string &name, const Mesh &value) const {
+        set(name + ".material", value.material);
+        set(name + ".nb_vertices", (GLuint)value.vertices.size());
+        set(name + ".nb_triangles", (GLuint)value.triangles.size());
+        for (size_t i = 0; i < value.vertices.size(); i++) {
+            set(name + ".vertices[" + std::to_string(i) + "]", value.vertices[i]);
+        }
+        for (size_t i = 0; i < value.triangles.size(); i++) {
+            set(name + ".triangles[" + std::to_string(i) + "]", value.triangles[i]);
+        }
+    }
 };
 
 #endif

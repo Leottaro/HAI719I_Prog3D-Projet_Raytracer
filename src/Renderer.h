@@ -165,11 +165,11 @@ private:
         for (unsigned int i = 0; i < nb_squares; i++) {
             m_shader.set("squares[" + std::to_string(i) + "]", squares[i]);
         }
-        // GLuint nb_meshes = meshes.size();
-        // m_shader.set("nb_meshes", nb_meshes);
-        // for (unsigned int i = 0; i < nb_meshes; i++) {
-        //     m_shader.set("meshes[" + std::to_string(i) + "]", meshes[i]);
-        // }
+        GLuint nb_meshes = meshes.size();
+        m_shader.set("nb_meshes", nb_meshes);
+        for (unsigned int i = 0; i < nb_meshes; i++) {
+            m_shader.set("meshes[" + std::to_string(i) + "]", meshes[i]);
+        }
         GLuint nb_lights = lights.size();
         m_shader.set("nb_lights", nb_lights);
         for (unsigned int i = 0; i < nb_lights; i++) {

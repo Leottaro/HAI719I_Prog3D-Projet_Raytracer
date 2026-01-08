@@ -86,6 +86,27 @@ struct Light {
   float powerCorrection;
 };
 
+struct MeshVertex {
+  vec3 position;
+  vec3 normal;
+  float u;
+  float v;
+};
+
+struct MeshTriangle {
+  uint v0;
+  uint v1;
+  uint v2;
+};
+
+struct Mesh {
+  Material material;
+  uint nb_vertices;
+  uint nb_triangles;
+  MeshVertex vertices[1000];
+  MeshTriangle triangles[1000];
+};
+
 // ======================================================================================================
 // =============================================== INPUTS ===============================================
 // ======================================================================================================
@@ -102,13 +123,14 @@ uniform float max_t;
 
 uniform Settings settings;
 uniform uint nb_spheres;
-uniform Sphere spheres[10];
 uniform uint nb_squares;
-uniform Square squares[10];
 uniform uint nb_lights;
+uniform uint nb_meshes;
+
+uniform Sphere spheres[10];
+uniform Square squares[10];
 uniform Light lights[10];
-// uniform uint nb_meshes;
-// uniform Mesh meshes;
+uniform Mesh meshes[10];
 
 ivec3 screen_coords = ivec3(gl_GlobalInvocationID.xyz);
 uint seed = uint(screen_coords.y * settings.SCREEN_WIDTH * settings.NSAMPLES + screen_coords.x * settings.NSAMPLES + screen_coords.z);
@@ -161,6 +183,43 @@ vec2 getRayInOutIndexMediums(inout Ray ray, in float index_medium, in uint objec
   // return vec2(nL, nT);
 }
 
+struct Triangle {
+  vec3 m_normal;
+  vec3 m_c[3];
+  float area;
+};
+void updateAreaAndNormal(inout Triangle triangle) {
+  vec3 nNotNormalized = cross(triangle.m_c[1] - triangle.m_c[0], triangle.m_c[2] - triangle.m_c[0]);
+  float norm = nNotNormalized.length();
+  triangle.m_normal = nNotNormalized / norm;
+  triangle.area = norm / 2.;
+}
+Triangle newTriangle(in vec3 c0, in vec3 c1, in vec3 c2) {
+  Triangle triangle;
+  triangle.m_c[0] = c0;
+  triangle.m_c[1] = c1;
+  triangle.m_c[2] = c2;
+  updateAreaAndNormal(triangle);
+  return triangle;
+}
+bool isParallelTo(in Ray ray, in Triangle triangle) {
+  return abs(dot(ray.dir, triangle.m_normal)) <= settings.EPSILON;
+}
+vec3 getIntersectionPointWithSupportPlane(in Ray ray, in Triangle triangle, out float t) {
+  if(isParallelTo(ray, triangle)) {
+    return vec3(0.);
+  }
+
+  t = -(dot(triangle.m_normal, ray.pos - triangle.m_c[0])) / dot(triangle.m_normal, ray.dir);
+  return ray.pos + t * ray.dir;
+}
+vec3 computeBarycentricCoordinates(in vec3 p, in Triangle triangle) {
+  return vec3(newTriangle(p, triangle.m_c[1], triangle.m_c[2]).area, //
+  newTriangle(triangle.m_c[0], p, triangle.m_c[2]).area,  // 
+  newTriangle(triangle.m_c[0], triangle.m_c[1], p).area //
+  ) / triangle.area - vec3(settings.EPSILON);
+}
+
 struct RaySphereIntersection {
   bool intersectionExists;
   float t;
@@ -191,6 +250,25 @@ RaySquareIntersection newRaySquareIntersection() {
   return intersection;
 }
 
+struct RayTriangleIntersection {
+  bool intersectionExists;
+  float t;
+  float w0;
+  float w1;
+  float w2;
+  float u;
+  float v;
+  uint tIndex;
+  vec3 intersection;
+  vec3 normal;
+};
+RayTriangleIntersection newRayTriangleIntersection() {
+  RayTriangleIntersection intersection;
+  intersection.intersectionExists = false;
+  intersection.t = FLT_MAX;
+  return intersection;
+}
+
 struct RaySceneIntersection {
   bool intersectionExists;
   float t;
@@ -203,6 +281,7 @@ struct RaySceneIntersection {
   uint objectIndex;
   RaySphereIntersection raySphereIntersection;
   RaySquareIntersection raySquareIntersection;
+  RayTriangleIntersection rayMeshIntersection;
 };
 RaySceneIntersection newRaySceneIntersection(in float _max_t) {
   RaySceneIntersection intersection;
@@ -211,7 +290,7 @@ RaySceneIntersection newRaySceneIntersection(in float _max_t) {
   return intersection;
 }
 
-// const uint TriangleIntersection = 0;
+const uint TriangleIntersection = 0;
 const uint SphereIntersection = 1;
 const uint SquareIntersection = 2;
 const uint LightIntersection = 3;
@@ -222,8 +301,8 @@ const uint LightIntersection = 3;
 
 // HELPERS
 
-  // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
-  // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
+// https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+// A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
 uint hash(uint x) {
   x += (x << 10u);
   x ^= (x >> 6u);
@@ -325,6 +404,18 @@ void setRaySquareIntersection(inout RaySceneIntersection result, in RaySquareInt
   result.objectIndex = object_i;
   result.raySquareIntersection = intersection;
 }
+void setRayTriangleIntersection(inout RaySceneIntersection result, in RayTriangleIntersection intersection, in Material material, in uint object_i) {
+  result.intersectionExists = true;
+  result.t = intersection.t;
+  result.u = intersection.u;
+  result.v = intersection.v;
+  result.intersection = intersection.intersection;
+  result.normal = intersection.normal;
+  result.material = material;
+  result.typeOfIntersectedObject = TriangleIntersection;
+  result.objectIndex = object_i;
+  result.rayMeshIntersection = intersection;
+}
 
 RaySquareIntersection intersectSquare(in Ray ray, in Square square, in bool can_intersect_behind) {
   RaySquareIntersection intersection = RaySquareIntersection(false, 0., 0., 0., vec3(0.), vec3(0.));
@@ -394,6 +485,70 @@ RaySphereIntersection intersectSphere(in Ray ray, in Sphere sphere) {
   return intersection;
 }
 
+RayTriangleIntersection intersectTriangle(in Ray ray, in Triangle triangle) {
+  RayTriangleIntersection intersection = newRayTriangleIntersection();
+
+  // 1) check that the ray is not parallel to the triangle
+  if(isParallelTo(ray, triangle)) {
+    return intersection;
+  }
+
+  // calculate the intersectionRayTriangleIntersection
+  float t = 0;
+  vec3 p = getIntersectionPointWithSupportPlane(ray, triangle, t);
+
+  // 2) check that the triangle is "in front of" the ray
+  if(dot(p - ray.pos, ray.dir) < 0) {
+    return intersection;
+  }
+
+  // 3) check that the intersection point is inside the triangle:
+  vec3 ws = computeBarycentricCoordinates(p, triangle);
+  if(any(lessThan(ws, vec3(0.))) || any(greaterThan(ws, vec3(1.))) || abs(dot(ws, vec3(1.)) - 1.) > 0.) { // TODO: 0 < w0+w1+w2 < 1
+    return intersection;
+  }
+
+  // 4) Finally, if all conditions were met, then there is an intersection!
+  intersection.intersectionExists = true;
+  intersection.t = t;
+  intersection.w0 = ws.x;
+  intersection.w1 = ws.y;
+  intersection.w2 = ws.z;
+  // intersection.u;
+  // intersection.v;
+  // intersection.tIndex;
+  intersection.intersection = p;
+  // intersection.normal;
+  return intersection;
+}
+
+RayTriangleIntersection intersectMesh(in Ray ray, in Mesh mesh) {
+  RayTriangleIntersection closestIntersection = newRayTriangleIntersection();
+
+  for(uint i = 0; i < mesh.nb_triangles; i++) {
+    MeshTriangle mesh_triangle = mesh.triangles[i];
+    MeshVertex v0 = mesh.vertices[mesh_triangle.v0];
+    MeshVertex v1 = mesh.vertices[mesh_triangle.v1];
+    MeshVertex v2 = mesh.vertices[mesh_triangle.v2];
+    Triangle triangle = newTriangle(v0.position, v1.position, v2.position);
+    RayTriangleIntersection intersection = intersectTriangle(ray, triangle);
+    if(intersection.intersectionExists && intersection.t < closestIntersection.t) {
+      if(settings.Mesh.ENABLE_INTERPOLATION) {
+        intersection.normal = normalize(v0.normal * intersection.w0 + v1.normal * intersection.w1 + v2.normal * intersection.w2);
+        intersection.u = v0.u * intersection.w0 + v1.u * intersection.w1 + v2.u * intersection.w2;
+        intersection.v = v0.v * intersection.w0 + v1.v * intersection.w1 + v2.v * intersection.w2;
+      } else {
+        intersection.normal = normalize(v0.normal);
+        intersection.u = v0.u;
+        intersection.v = v0.v;
+      }
+      intersection.tIndex = i;
+      closestIntersection = intersection;
+    }
+  }
+  return closestIntersection;
+}
+
 // SCENE.H
 
 RaySceneIntersection computeIntersection(in Ray ray, in float min_t, in float max_t, in bool intersect_lights) {
@@ -413,12 +568,12 @@ RaySceneIntersection computeIntersection(in Ray ray, in float min_t, in float ma
     }
   }
 
-  // for(uint i = 0; i < nb_meshes; i++) {
-  //   RayTriangleIntersection intersection = meshes[i].intersect(ray);
-  //   if(intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
-  //     setRayTriangleIntersection(result, intersection, meshes[i].material, i);
-  //   }
-  // }
+  for(uint i = 0; i < nb_meshes; i++) {
+    RayTriangleIntersection intersection = intersectMesh(ray, meshes[i]);
+    if(intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+      setRayTriangleIntersection(result, intersection, meshes[i].material, i);
+    }
+  }
 
   if(intersect_lights) {
     for(uint i = 0; i < nb_lights; i++) {
