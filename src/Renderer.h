@@ -79,11 +79,13 @@ public:
 private:
     ComputeShader m_shader;
     GLuint m_out_texture;
+    GLuint m_spheres_ssbo, m_squares_ssbo, m_lights_ssbo;
 
     void createTextures() {
         // Create the output texture
         cout << "\tCreating texture..." << flush;
         auto begin = chrono::high_resolution_clock::now();
+
         glGenTextures(1, &m_out_texture);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, m_out_texture);
@@ -93,6 +95,8 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
         glBindImageTexture(0, m_out_texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        
+        glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
         cout << "\tDone in " << elapsed << "ms" << endl;
@@ -101,7 +105,70 @@ private:
     void deleteTextures() {
         cout << "\tDeleting textures..." << flush;
         auto begin = chrono::high_resolution_clock::now();
+
         glDeleteTextures(1, &m_out_texture);
+        
+        glFinish();
+        auto end = chrono::high_resolution_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
+    }
+
+    void createSceneBuffers() {
+        cout << "\tCreating buffer..." << flush;
+        auto begin = chrono::high_resolution_clock::now();
+
+        unsigned int nb_spheres = spheres.size();
+        vector<ShaderSphere> shader_spheres(nb_spheres);
+        for (size_t i = 0; i < nb_spheres; i++) {
+            shader_spheres[i].assign(spheres[i]);
+        }
+        glGenBuffers(1, &m_spheres_ssbo);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_spheres_ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, 16 + nb_spheres * sizeof(ShaderSphere), NULL, GL_DYNAMIC_DRAW);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(unsigned int), &nb_spheres);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 16, nb_spheres * sizeof(ShaderSphere), shader_spheres.data());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_spheres_ssbo);
+
+        unsigned int nb_squares = squares.size();
+        vector<ShaderSquare> shader_squares(nb_squares);
+        for (size_t i = 0; i < nb_squares; i++) {
+            shader_squares[i].assign(squares[i]);
+        }
+        glGenBuffers(1, &m_squares_ssbo);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_squares_ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, 16 + nb_squares * sizeof(ShaderSquare), NULL, GL_DYNAMIC_DRAW);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(unsigned int), &nb_squares);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 16, nb_squares * sizeof(ShaderSquare), shader_squares.data());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_squares_ssbo);
+
+        unsigned int nb_lights = lights.size();
+        vector<ShaderLight> shader_lights(nb_lights);
+        for (size_t i = 0; i < nb_lights; i++) {
+            shader_lights[i].assign(lights[i]);
+        }
+        glGenBuffers(1, &m_lights_ssbo);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_lights_ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, 16 + nb_lights * sizeof(ShaderLight), NULL, GL_DYNAMIC_DRAW);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(unsigned int), &nb_lights);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 16, nb_lights * sizeof(ShaderLight), shader_lights.data());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_lights_ssbo);
+
+        glFinish();
+        auto end = chrono::high_resolution_clock::now();
+        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tDone in " << elapsed << "ms" << endl;
+    }
+
+    void deleteSceneBuffers() {
+        cout << "\tDeleting buffers..." << flush;
+        auto begin = chrono::high_resolution_clock::now();
+
+        glDeleteBuffers(1, &m_spheres_ssbo);
+        glDeleteBuffers(1, &m_squares_ssbo);
+        glDeleteBuffers(1, &m_lights_ssbo);
+        
+        glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
         cout << "\tDone in " << elapsed << "ms" << endl;
@@ -154,29 +221,6 @@ private:
         m_shader.set("settings.Bonus.ENABLE_TEXTURES", Settings::Bonus::ENABLE_TEXTURES);
     }
 
-    void updateSceneUniforms() {
-        GLuint nb_spheres = spheres.size();
-        m_shader.set("nb_spheres", nb_spheres);
-        for (unsigned int i = 0; i < nb_spheres; i++) {
-            m_shader.set("spheres[" + std::to_string(i) + "]", spheres[i]);
-        }
-        GLuint nb_squares = squares.size();
-        m_shader.set("nb_squares", nb_squares);
-        for (unsigned int i = 0; i < nb_squares; i++) {
-            m_shader.set("squares[" + std::to_string(i) + "]", squares[i]);
-        }
-        GLuint nb_meshes = meshes.size();
-        m_shader.set("nb_meshes", nb_meshes);
-        for (unsigned int i = 0; i < nb_meshes; i++) {
-            m_shader.set("meshes[" + std::to_string(i) + "]", meshes[i]);
-        }
-        GLuint nb_lights = lights.size();
-        m_shader.set("nb_lights", nb_lights);
-        for (unsigned int i = 0; i < nb_lights; i++) {
-            m_shader.set("lights[" + std::to_string(i) + "]", lights[i]);
-        }
-    }
-
     void updateUniforms(float _min_t, float _max_t) {
         cout << "\tUpdating uniforms..." << flush;
         auto begin = chrono::high_resolution_clock::now();
@@ -184,8 +228,8 @@ private:
         m_shader.use();
         updateGeneralUniforms(_min_t, _max_t);
         updateSettingsUniforms();
-        updateSceneUniforms();
 
+        glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
         cout << "\tDone in " << elapsed << "ms" << endl;
@@ -197,6 +241,7 @@ private:
 
         m_shader.execute(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, Settings::NSAMPLES);
 
+        glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
         cout << "\tDone in " << elapsed << "ms" << endl;
@@ -210,6 +255,7 @@ private:
         glBindTexture(GL_TEXTURE_2D, m_out_texture);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, image.data());
 
+        glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
         cout << "\tDone in " << elapsed << "ms" << endl;
@@ -222,11 +268,14 @@ public:
         cout << "Ray tracing a " << Settings::SCREEN_WIDTH << " x " << Settings::SCREEN_HEIGHT << " image (GPU) :" << endl;
 
         createTextures();
+        createSceneBuffers();
         updateUniforms(_min_t, _max_t);
         executeShader();
         vector<Vec3> image = retrieveImage();
+        deleteSceneBuffers();
         deleteTextures();
 
+        glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
         cout << "\tTotal time: " << elapsed << "ms" << endl;
