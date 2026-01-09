@@ -14,11 +14,103 @@
 #include "Square.h"
 #include "Scene.h"
 
-// https://learnopengl.com/Guest-Articles/2022/Compute-Shaders/Introduction
+struct ShaderMaterial {
+    float ambient_material[3];
+    float shininess;
+    
+    float diffuse_material[3];
+    float index_medium;
+    
+    float specular_material[3];
+    float transparency;
+    
+    int image_id;
+    unsigned int type;
+    float _pad0[2];
+    
+    ShaderMaterial() {}
 
+    void assign(Material const &material) {
+        shininess = material.shininess;
+        index_medium = material.index_medium;
+        transparency = material.transparency;
+        image_id = material.image_id;
+        type = static_cast<unsigned int>(material.type);
+        for (unsigned char i = 0; i < 3; i++) {
+            ambient_material[i] = material.ambient_material[i];
+            diffuse_material[i] = material.diffuse_material[i];
+            specular_material[i] = material.specular_material[i];
+        }
+    }
+};
+
+struct ShaderSphere {
+    float m_center[3];
+    float m_radius;
+    ShaderMaterial material;
+
+    ShaderSphere() {}
+
+    void assign(Sphere const &sphere) {
+        m_radius = sphere.m_radius;
+        material.assign(sphere.material);
+        for (unsigned char i = 0; i < 3; i++) {
+            m_center[i] = sphere.m_center[i];
+        }
+    }
+};
+
+struct ShaderSquare {
+    float m_normal[4]; // vec3 + padding
+    float m_bottom_left[4]; // vec3 + padding
+    float m_right_vector[4]; // vec3 + padding
+    float m_up_vector[4]; // vec3 + padding
+    ShaderMaterial material;
+
+    ShaderSquare() {}
+
+    void assign(Square const &square) {
+        material.assign(square.material);
+        for (unsigned char i = 0; i < 3; i++) {
+            m_normal[i] = square.m_normal[i];
+            m_bottom_left[i] = square.m_bottom_left[i];
+            m_right_vector[i] = square.m_right_vector[i];
+            m_up_vector[i] = square.m_up_vector[i];
+        }
+    }
+};
+
+struct ShaderLight {
+    float material[3];
+    float powerCorrection;
+
+    unsigned int type;
+    bool isInCamSpace;
+    float _pad0[2];
+
+    ShaderSphere sphere;
+    ShaderSquare quad;
+
+    ShaderLight() {}
+
+    void assign(Light const &light) {
+        powerCorrection = light.powerCorrection;
+        type = light.type;
+        isInCamSpace = light.isInCamSpace;
+        sphere.assign(light.sphere);
+        quad.assign(light.quad);
+        for (unsigned char i = 0; i < 3; i++) {
+            material[i] = light.material[i];
+        }
+    }
+};
+
+// https://learnopengl.com/Guest-Articles/2022/Compute-Shaders/Introduction
 class ComputeShader {
 private:
     unsigned int m_shader_id;
+    int success;
+    char infoLog[512];
 
 public:
     // constructor reads and builds the shader
@@ -38,16 +130,13 @@ public:
         compute_file.close();
 
         // compile
-        int success;
-        char infoLog[512];
-
         unsigned int compute = glCreateShader(GL_COMPUTE_SHADER);
         glShaderSource(compute, 1, &compute_code, NULL);
         glCompileShader(compute);
         glGetShaderiv(compute, GL_COMPILE_STATUS, &success);
         if (!success) {
             glGetShaderInfoLog(compute, 512, NULL, infoLog);
-            std::cout << "ERROR::COMPUTE_SHADER::COMPILATION_FAILED\n"
+            std::cerr << "ERROR::COMPUTE_SHADER::COMPILATION_FAILED\n"
                       << infoLog << std::endl;
         };
 
@@ -57,7 +146,7 @@ public:
         glGetProgramiv(m_shader_id, GL_LINK_STATUS, &success);
         if (!success) {
             glGetProgramInfoLog(m_shader_id, 512, NULL, infoLog);
-            std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
+            std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
                       << infoLog << std::endl;
         }
 
@@ -70,7 +159,6 @@ public:
 
     void execute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z) const {
         glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
-        glFinish();
     }
 
     void set(const std::string &name, GLboolean value) const {

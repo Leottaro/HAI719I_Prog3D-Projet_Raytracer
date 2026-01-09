@@ -49,21 +49,23 @@ const uint Material_DiffUSE_PHONG = 1;
 const uint Material_Glass = 2;
 const uint Material_Mirror = 3;
 struct Material {
-  int image_id;
   vec3 ambient_material;
-  vec3 diffuse_material;
-  vec3 specular_material;
   float shininess;
 
+  vec3 diffuse_material;
   float index_medium;
+
+  vec3 specular_material;
   float transparency;
 
+  int image_id;
   uint type;
 };
 
 struct Sphere {
   vec3 m_center;
   float m_radius;
+
   Material material;
 };
 
@@ -79,11 +81,13 @@ const uint LightType_Spherical = 1;
 const uint LightType_Quad = 2;
 struct Light {
   vec3 material;
-  bool isInCamSpace;
+  float powerCorrection;
+
   uint type;
+  bool isInCamSpace;
+  
   Sphere sphere;
   Square quad;
-  float powerCorrection;
 };
 
 // ======================================================================================================
@@ -93,6 +97,22 @@ struct Light {
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(binding = 0, rgba32f) uniform image2D imgOutput;
+layout(binding = 1, std430) buffer SpheresBuffer {
+  uint nb_spheres;
+  Sphere spheres[];
+};
+layout(binding = 2, std430) buffer SquaresBuffer {
+  uint nb_squares;
+  Square squares[];
+};
+layout(binding = 3, std430) buffer LightsBuffer {
+  uint nb_lights;
+  Light lights[];
+};
+// layout(binding = 4, std430) buffer MeshesBuffer {
+//   uint nb_meshes;
+//   Mesh meshes[];
+// };
 
 uniform dvec2 nearAndFarPlanes;
 uniform dmat4 modelviewInverse;
@@ -101,14 +121,6 @@ uniform float min_t;
 uniform float max_t;
 
 uniform Settings settings;
-uniform uint nb_spheres;
-uniform Sphere spheres[10];
-uniform uint nb_squares;
-uniform Square squares[10];
-uniform uint nb_lights;
-uniform Light lights[10];
-// uniform uint nb_meshes;
-// uniform Mesh meshes;
 
 ivec3 screen_coords = ivec3(gl_GlobalInvocationID.xyz);
 uint seed = uint(screen_coords.y * settings.SCREEN_WIDTH * settings.NSAMPLES + screen_coords.x * settings.NSAMPLES + screen_coords.z);
