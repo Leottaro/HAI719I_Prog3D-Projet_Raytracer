@@ -85,9 +85,32 @@ struct Light {
 
   uint type;
   bool isInCamSpace;
-  
+
   Sphere sphere;
   Square quad;
+};
+
+struct MeshVertex {
+  vec3 position;
+  float u;
+
+  vec3 normal;
+  float v;
+};
+
+struct MeshTriangle {
+  uint v0;
+  uint v1;
+  uint v2;
+};
+
+struct Mesh {
+  uint nb_vertices;
+  uint vertices_offset;
+  uint nb_triangles;
+  uint triangles_offset;
+
+  Material material;
 };
 
 // ======================================================================================================
@@ -97,6 +120,9 @@ struct Light {
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(binding = 0, rgba32f) uniform image2D imgOutput;
+
+// https://webgpufundamentals.org/webgpu/lessons/resources/wgsl-offset-computer.html#x=5d000001006305000000000000003d888b0237284d3025f2381bcb28899290cefc279bfb15c31b414688ec65ca60b432a34280bfdf40b8a186c91ed4e0f97428632dca45c8620bc930947162c168a9e11915418b1bb46890d871a8015b9714ee7d119be948d5d46b586e758ef2f7ad9218c9c5b9ead787170cc1ab13b8a12857dabd89c43e03bd683506dec1863b24f8cbb14adc6cfdc4ab489d28755e155fdf50fd55cded588f8f97ab27b9cf2059b7d45b851378ce74829442b08c81766ec0ae5130f175df6a21fc884037f7548b97d1cef8bfb249d82c14e65e7cdf8c6900636c3b74264a89dc7782cba29ea6a0146afc64af1a2ef2bbad3f490ee8710720a932288e95c72b777dcc0c7f306c9aad70647c40655a3fb7327c7e6c98383b7849bf36ae06a286da323d6ef216b838563cac0e6a49c799df8a0113b6ddcca8dbd2a109c9a3dc19c3805d70fdf395da7ed729151b3cb51e40e63038b59536d22007153d29a71c1ceb84a94bcdd4d5827f9d8ef631ea08af223604ed8c4a8667fdb4b0757c746c46770a5a8489bffe30f7b12f5c27d5693e835a46ad276e717425196623a8630043e84dc74354c61957a99dc500ec2e0b879cb6133402e61182bd2a5c68051b914bd418c744fe7d8393d506f480450e20fce0635754a601adcbab0febf66dffae15d858c8e6b150c2804ecd11da8b2935fcdb19f059523df3721d219441fde33622
+// webGPU has the same alignments as a std430 buffer
 layout(binding = 1, std430) buffer SpheresBuffer {
   uint nb_spheres;
   Sphere spheres[];
@@ -109,10 +135,16 @@ layout(binding = 3, std430) buffer LightsBuffer {
   uint nb_lights;
   Light lights[];
 };
-// layout(binding = 4, std430) buffer MeshesBuffer {
-//   uint nb_meshes;
-//   Mesh meshes[];
-// };
+layout(binding = 4, std430) buffer MeshVerticesBuffer {
+  MeshVertex mesh_vertices[];
+};
+layout(binding = 5, std430) buffer MeshTrianglesBuffer {
+  MeshTriangle mesh_triangles[];
+};
+layout(binding = 6, std430) buffer MeshesBuffer {
+  uint nb_meshes;
+  Mesh meshes[];
+};
 
 uniform dvec2 nearAndFarPlanes;
 uniform dmat4 modelviewInverse;
@@ -160,7 +192,7 @@ Ray newRay(vec3 position, vec3 direction, Ray input_ray) {
 }
 
 vec2 getRayInOutIndexMediums(inout Ray ray, in float index_medium, in uint object_type, in uint object_index) {
-  if(ray.object_types[ray.nb_bounces - 1] == object_type && ray.object_indices[ray.nb_bounces - 1] == object_index) {
+  if (ray.object_types[ray.nb_bounces - 1] == object_type && ray.object_indices[ray.nb_bounces - 1] == object_index) {
     ray.nb_bounces--;
     return vec2(ray.index_mediums[ray.nb_bounces], ray.index_mediums[ray.nb_bounces - 1]);
   } else {
@@ -171,6 +203,41 @@ vec2 getRayInOutIndexMediums(inout Ray ray, in float index_medium, in uint objec
     return vec2(ray.index_mediums[ray.nb_bounces - 2], ray.index_mediums[ray.nb_bounces - 1]);
   }
   // return vec2(nL, nT);
+}
+
+struct Triangle {
+  vec3 m_normal;
+  vec3 m_c[3];
+  float area;
+};
+void updateAreaAndNormal(inout Triangle triangle) {
+  vec3 nNotNormalized = cross(triangle.m_c[1] - triangle.m_c[0], triangle.m_c[2] - triangle.m_c[0]);
+  triangle.area = length(nNotNormalized) / 2.;
+  triangle.m_normal = normalize(nNotNormalized);
+}
+Triangle newTriangle(in vec3 c0, in vec3 c1, in vec3 c2) {
+  Triangle triangle;
+  triangle.m_c[0] = c0;
+  triangle.m_c[1] = c1;
+  triangle.m_c[2] = c2;
+  updateAreaAndNormal(triangle);
+  return triangle;
+}
+bool isParallelTo(in Ray ray, in Triangle triangle) {
+  return abs(dot(ray.dir, triangle.m_normal)) <= settings.EPSILON;
+}
+vec3 getIntersectionPointWithSupportPlane(in Ray ray, in Triangle triangle, out float t) {
+  if (isParallelTo(ray, triangle)) {
+    return vec3(0.);
+  }
+
+  t = -(dot(triangle.m_normal, ray.pos - triangle.m_c[0])) / dot(triangle.m_normal, ray.dir);
+  return ray.pos + t * ray.dir;
+}
+void computeBarycentricCoordinates(in vec3 p, in Triangle triangle, out float w0, out float w1, out float w2) {
+  w0 = newTriangle(p, triangle.m_c[1], triangle.m_c[2]).area / triangle.area - settings.EPSILON;
+  w1 = newTriangle(triangle.m_c[0], p, triangle.m_c[2]).area / triangle.area - settings.EPSILON;
+  w2 = newTriangle(triangle.m_c[0], triangle.m_c[1], p).area / triangle.area - settings.EPSILON;
 }
 
 struct RaySphereIntersection {
@@ -203,6 +270,25 @@ RaySquareIntersection newRaySquareIntersection() {
   return intersection;
 }
 
+struct RayTriangleIntersection {
+  bool intersectionExists;
+  float t;
+  float w0;
+  float w1;
+  float w2;
+  float u;
+  float v;
+  uint tIndex;
+  vec3 intersection;
+  vec3 normal;
+};
+RayTriangleIntersection newRayTriangleIntersection() {
+  RayTriangleIntersection intersection;
+  intersection.intersectionExists = false;
+  intersection.t = FLT_MAX;
+  return intersection;
+}
+
 struct RaySceneIntersection {
   bool intersectionExists;
   float t;
@@ -215,6 +301,7 @@ struct RaySceneIntersection {
   uint objectIndex;
   RaySphereIntersection raySphereIntersection;
   RaySquareIntersection raySquareIntersection;
+  RayTriangleIntersection rayMeshIntersection;
 };
 RaySceneIntersection newRaySceneIntersection(in float _max_t) {
   RaySceneIntersection intersection;
@@ -223,7 +310,7 @@ RaySceneIntersection newRaySceneIntersection(in float _max_t) {
   return intersection;
 }
 
-// const uint TriangleIntersection = 0;
+const uint TriangleIntersection = 0;
 const uint SphereIntersection = 1;
 const uint SquareIntersection = 2;
 const uint LightIntersection = 3;
@@ -234,8 +321,8 @@ const uint LightIntersection = 3;
 
 // HELPERS
 
-  // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
-  // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
+// https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+// A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
 uint hash(uint x) {
   x += (x << 10u);
   x ^= (x >> 6u);
@@ -245,7 +332,7 @@ uint hash(uint x) {
   return x;
 }
 
-  // Compound versions of the hashing algorithm I whipped together.
+// Compound versions of the hashing algorithm I whipped together.
 uint hash(uvec2 v) {
   return hash(v.x ^ hash(v.y));
 }
@@ -256,20 +343,20 @@ uint hash(uvec4 v) {
   return hash(v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w));
 }
 
-  // Construct a float with half-open range [0:1] using low 23 bits.
-  // All zeroes yields 0.0, all ones yields the next smallest representable value below 1.0.
+// Construct a float with half-open range [0:1] using low 23 bits.
+// All zeroes yields 0.0, all ones yields the next smallest representable value below 1.0.
 float floatConstruct(uint m) {
   const uint ieeeMantissa = 0x007FFFFFu; // binary32 mantissa bitmask
-  const uint ieeeOne = 0x3F800000u; // 1.0 in IEEE binary32
+  const uint ieeeOne = 0x3F800000u;      // 1.0 in IEEE binary32
 
-  m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
-  m |= ieeeOne;                          // Add fractional part to 1.0
+  m &= ieeeMantissa; // Keep only mantissa bits (fractional part)
+  m |= ieeeOne;      // Add fractional part to 1.0
 
-  float f = uintBitsToFloat(m);       // Range [1:2]
-  return f - 1.0;                        // Range [0:1]
+  float f = uintBitsToFloat(m); // Range [1:2]
+  return f - 1.0;               // Range [0:1]
 }
 
-  // Pseudo-random value in half-open range [0:1].
+// Pseudo-random value in half-open range [0:1].
 float random(float x) {
   return floatConstruct(hash(floatBitsToUint(x)));
 }
@@ -295,7 +382,7 @@ vec3 sphericalCoordinatesToEuclidean(in float theta, in float phi) {
 vec3 euclideanCoordinatesToSpherical(in vec3 pos) {
   float R = length(pos);
   float theta = atan(pos.x, pos.z); // azimuth around y-axis, 0..2π
-  if(theta < 0.) {
+  if (theta < 0.) {
     theta += 2. * PI;
   }
 
@@ -305,16 +392,16 @@ vec3 euclideanCoordinatesToSpherical(in vec3 pos) {
 }
 
 vec3 getLightCentralPos(in Light light) {
-  if(light.type == LightType_Quad)
+  if (light.type == LightType_Quad)
     return light.quad.m_bottom_left + 0.5 * (light.quad.m_right_vector + light.quad.m_up_vector);
-  if(light.type == LightType_Spherical)
+  if (light.type == LightType_Spherical)
     return light.sphere.m_center;
 }
 
 // INTERSECTIONS
 
 void setRaySphereIntersection(inout RaySceneIntersection result, in RaySphereIntersection intersection, in Material material, in uint object_i) {
-  result.intersectionExists = true;
+  result.intersectionExists = intersection.intersectionExists;
   result.t = intersection.t;
   result.u = intersection.theta / (2. * PI);
   result.v = intersection.phi / PI;
@@ -326,7 +413,7 @@ void setRaySphereIntersection(inout RaySceneIntersection result, in RaySphereInt
   result.raySphereIntersection = intersection;
 }
 void setRaySquareIntersection(inout RaySceneIntersection result, in RaySquareIntersection intersection, in Material material, in uint object_i) {
-  result.intersectionExists = true;
+  result.intersectionExists = intersection.intersectionExists;
   result.t = intersection.t;
   result.u = intersection.u;
   result.v = intersection.v;
@@ -336,6 +423,18 @@ void setRaySquareIntersection(inout RaySceneIntersection result, in RaySquareInt
   result.typeOfIntersectedObject = SquareIntersection;
   result.objectIndex = object_i;
   result.raySquareIntersection = intersection;
+}
+void setRayTriangleIntersection(inout RaySceneIntersection result, in RayTriangleIntersection intersection, in Material material, in uint object_i) {
+  result.intersectionExists = intersection.intersectionExists;
+  result.t = intersection.t;
+  result.u = intersection.u;
+  result.v = intersection.v;
+  result.intersection = intersection.intersection;
+  result.normal = intersection.normal;
+  result.material = material;
+  result.typeOfIntersectedObject = TriangleIntersection;
+  result.objectIndex = object_i;
+  result.rayMeshIntersection = intersection;
 }
 
 RaySquareIntersection intersectSquare(in Ray ray, in Square square, in bool can_intersect_behind) {
@@ -347,7 +446,7 @@ RaySquareIntersection intersectSquare(in Ray ray, in Square square, in bool can_
   const vec3 N = square.m_normal;
 
   // nous sommes derrière le carré donc pas d'intersection
-  if(!can_intersect_behind && square.material.type != Material_Glass && dot(D, N) >= 0.) {
+  if (!can_intersect_behind && square.material.type != Material_Glass && dot(D, N) >= 0.) {
     return intersection;
   }
 
@@ -358,7 +457,7 @@ RaySquareIntersection intersectSquare(in Ray ray, in Square square, in bool can_
   float u = dot(PC, square.m_right_vector) / dot(square.m_right_vector, square.m_right_vector);
   float v = dot(PC, square.m_up_vector) / dot(square.m_up_vector, square.m_up_vector);
 
-  if(settings.EPSILON <= u && u <= 1. && settings.EPSILON <= v && v <= 1.) {
+  if (settings.EPSILON <= u && u <= 1. && settings.EPSILON <= v && v <= 1.) {
     intersection.intersectionExists = true;
     intersection.t = t;
     intersection.u = u;
@@ -384,7 +483,7 @@ RaySphereIntersection intersectSphere(in Ray ray, in Sphere sphere) {
   float c = dot(CO, CO) - r * r;
   float delta = b * b - 4. * a * c;
 
-  if(delta < 0.) {
+  if (delta < 0.) {
     return intersection;
   }
 
@@ -406,48 +505,113 @@ RaySphereIntersection intersectSphere(in Ray ray, in Sphere sphere) {
   return intersection;
 }
 
+RayTriangleIntersection intersectTriangle(in Ray ray, in Triangle triangle) {
+  RayTriangleIntersection intersection = newRayTriangleIntersection();
+
+  // 1) check that the ray is not parallel to the triangle
+  if (isParallelTo(ray, triangle)) {
+    return intersection;
+  }
+
+  // calculate the intersectionRayTriangleIntersection
+  float t = 0;
+  vec3 p = getIntersectionPointWithSupportPlane(ray, triangle, t);
+
+  // 2) check that the triangle is "in front of" the ray
+  if (dot(p - ray.pos, ray.dir) < 0) {
+    return intersection;
+  }
+
+  // 3) check that the intersection point is inside the triangle:
+  float w0, w1, w2;
+  computeBarycentricCoordinates(p, triangle, w0, w1, w2);
+  if (w0 < 0 || 1 < w0 || w1 < 0 || 1 < w1 || w2 < 0 || 1 < w2 || w0 + w1 + w2 < 0 || 1 < w0 + w1 + w2) {
+    return intersection;
+  }
+
+  // 4) Finally, if all conditions were met, then there is an intersection!
+  intersection.intersectionExists = true;
+  intersection.t = t;
+  intersection.w0 = w0;
+  intersection.w1 = w1;
+  intersection.w2 = w2;
+  // intersection.u;
+  // intersection.v;
+  // intersection.tIndex;
+  intersection.intersection = p;
+  // intersection.normal;
+  return intersection;
+}
+
+RayTriangleIntersection intersectMesh(in Ray ray, in Mesh mesh) {
+  RayTriangleIntersection closestIntersection = newRayTriangleIntersection();
+
+  for (uint i = 0; i < mesh.nb_triangles; i++) {
+    MeshTriangle mesh_triangle = mesh_triangles[mesh.triangles_offset + i];
+    MeshVertex v0 = mesh_vertices[mesh.vertices_offset + mesh_triangle.v0];
+    MeshVertex v1 = mesh_vertices[mesh.vertices_offset + mesh_triangle.v1];
+    MeshVertex v2 = mesh_vertices[mesh.vertices_offset + mesh_triangle.v2];
+    Triangle triangle = newTriangle(v0.position, v1.position, v2.position);
+    RayTriangleIntersection intersection = intersectTriangle(ray, triangle);
+    if (intersection.intersectionExists && intersection.t < closestIntersection.t) {
+      if (settings.Mesh.ENABLE_INTERPOLATION) {
+        intersection.normal = normalize(v0.normal * intersection.w0 + v1.normal * intersection.w1 + v2.normal * intersection.w2);
+        intersection.u = v0.u * intersection.w0 + v1.u * intersection.w1 + v2.u * intersection.w2;
+        intersection.v = v0.v * intersection.w0 + v1.v * intersection.w1 + v2.v * intersection.w2;
+      } else {
+        intersection.normal = normalize(v0.normal);
+        intersection.u = v0.u;
+        intersection.v = v0.v;
+      }
+      intersection.tIndex = i;
+      closestIntersection = intersection;
+    }
+  }
+  return closestIntersection;
+}
+
 // SCENE.H
 
 RaySceneIntersection computeIntersection(in Ray ray, in float min_t, in float max_t, in bool intersect_lights) {
   RaySceneIntersection result = newRaySceneIntersection(max_t);
 
-  for(uint i = 0; i < nb_spheres; i++) {
+  for (uint i = 0; i < nb_spheres; i++) {
     RaySphereIntersection intersection = intersectSphere(ray, spheres[i]);
-    if(intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+    if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
       setRaySphereIntersection(result, intersection, spheres[i].material, i);
     }
   }
 
-  for(uint i = 0; i < nb_squares; i++) {
+  for (uint i = 0; i < nb_squares; i++) {
     RaySquareIntersection intersection = intersectSquare(ray, squares[i], false);
-    if(intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+    if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
       setRaySquareIntersection(result, intersection, squares[i].material, i);
     }
   }
 
-  // for(uint i = 0; i < nb_meshes; i++) {
-  //   RayTriangleIntersection intersection = meshes[i].intersect(ray);
-  //   if(intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
-  //     setRayTriangleIntersection(result, intersection, meshes[i].material, i);
-  //   }
-  // }
+  for (uint i = 0; i < nb_meshes; i++) {
+    RayTriangleIntersection intersection = intersectMesh(ray, meshes[i]);
+    if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+      setRayTriangleIntersection(result, intersection, meshes[i].material, i);
+    }
+  }
 
-  if(intersect_lights) {
-    for(uint i = 0; i < nb_lights; i++) {
-      if(lights[i].type == LightType_Quad) {
+  if (intersect_lights) {
+    for (uint i = 0; i < nb_lights; i++) {
+      if (lights[i].type == LightType_Quad) {
         RaySquareIntersection intersection = intersectSquare(ray, lights[i].quad, true);
-        if(intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+        if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
           setRaySquareIntersection(result, intersection, lights[i].quad.material, i);
           result.typeOfIntersectedObject = LightIntersection;
         }
-      } else if(lights[i].type == LightType_Spherical) {
+      } else if (lights[i].type == LightType_Spherical) {
         RaySphereIntersection intersection = intersectSphere(ray, lights[i].sphere);
-        if(intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
+        if (intersection.intersectionExists && min_t < intersection.t && intersection.t < result.t) {
           setRaySphereIntersection(result, intersection, lights[i].sphere.material, i);
           result.typeOfIntersectedObject = LightIntersection;
         }
       } else {
-      // throw std::runtime_error("Light type not implemented in Scene::computeIntersection(...)");
+        // throw std::runtime_error("Light type not implemented in Scene::computeIntersection(...)");
       }
     }
   }
@@ -478,7 +642,7 @@ Ray computeRefractionRay(in Ray ray, in RaySceneIntersection intersection) {
   float sin_thetaL = length(LperpendicularN);
 
   // TODO: https://en.wikipedia.org/wiki/Fresnel_equations
-  if(sin_thetaL <= in_out_mediums.y / in_out_mediums.x) {
+  if (sin_thetaL <= in_out_mediums.y / in_out_mediums.x) {
     float r = in_out_mediums.x / in_out_mediums.y;
     float c = dot(N, L);
     vec3 T = N * (-r * c - sqrt(1. - r * r * (1. - c * c))) + L * r; // v_refract
@@ -491,12 +655,12 @@ Ray computeRefractionRay(in Ray ray, in RaySceneIntersection intersection) {
 
 float computeShadowIndex(in Ray ray, in RaySceneIntersection intersection, in Light light) {
   uint shadow_count = 0;
-  for(uint i = 0; i < settings.Phong.SHADOW_RAYS; i++) {
+  for (uint i = 0; i < settings.Phong.SHADOW_RAYS; i++) {
     vec3 sampled_pos;
-    if(settings.Phong.SHADOW_RAYS == 1) {
+    if (settings.Phong.SHADOW_RAYS == 1) {
       sampled_pos = getLightCentralPos(light);
     } else {
-      if(light.type == LightType_Spherical) {
+      if (light.type == LightType_Spherical) {
         float theta = 2. * PI * random(vec4(screen_coords, i * 3));
         float phi = PI * random(vec4(screen_coords, i * 3 + 1));
         float r = light.sphere.m_radius * sqrt(random(vec4(screen_coords, i * 3 + 2)));
@@ -510,7 +674,7 @@ float computeShadowIndex(in Ray ray, in RaySceneIntersection intersection, in Li
     vec3 direction = intersection.intersection - sampled_pos;
     Ray shadow_ray = newRay(sampled_pos, direction, ray);
     RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, settings.EPSILON, length(direction) - settings.EPSILON, true);
-    if(shadow_intersection.intersectionExists && shadow_intersection.typeOfIntersectedObject != LightIntersection) {
+    if (shadow_intersection.intersectionExists && shadow_intersection.typeOfIntersectedObject != LightIntersection) {
       shadow_count++;
     }
   }
@@ -523,7 +687,7 @@ vec3 phong(in Ray ray, in RaySceneIntersection intersection) {
   // const vec3 kd = settings.Bonus.ENABLE_TEXTURES && material.image_id >= 0 && !images[material.image_id].data.empty() ? images[material.image_id].getPixel(intersection.u, intersection.v) : material.diffuse_material;
   const vec3 kd = material.diffuse_material;
 
-  if(!settings.Phong.ENABLED) {
+  if (!settings.Phong.ENABLED) {
     return kd;
   }
 
@@ -540,7 +704,7 @@ vec3 phong(in Ray ray, in RaySceneIntersection intersection) {
   const vec3 ks = material.specular_material;
   const float alpha = material.shininess;
 
-  for(uint light_i = 0; light_i < nb_lights; light_i++) {
+  for (uint light_i = 0; light_i < nb_lights; light_i++) {
     Light light = lights[light_i];
 
     // bidouillage 2
@@ -568,16 +732,16 @@ vec3 rayTraceIterative(in Ray _ray, in float _min_t, in float _max_t) {
   vec3 color = vec3(0.);
   uint bounces = 0;
 
-  for(bounces = 0; bounces <= MAX_BOUNCES; bounces++) {
+  for (bounces = 0; bounces <= MAX_BOUNCES; bounces++) {
     RaySceneIntersection intersection = computeIntersection(_ray, settings.EPSILON, _max_t, false);
-    if(!intersection.intersectionExists) {
+    if (!intersection.intersectionExists) {
       color = vec3(0.);
       break;
     }
 
-    if(settings.Material.ENABLE_GLASS && intersection.material.type == Material_Glass) {
+    if (settings.Material.ENABLE_GLASS && intersection.material.type == Material_Glass) {
       _ray = computeRefractionRay(_ray, intersection);
-    } else if(settings.Material.ENABLE_MIRROR && intersection.material.type == Material_Mirror) {
+    } else if (settings.Material.ENABLE_MIRROR && intersection.material.type == Material_Mirror) {
       _ray = computeReflectionRay(_ray, intersection);
     } else {
       color = max(vec3(0.), min(vec3(1.), phong(_ray, intersection)));
