@@ -607,8 +607,22 @@ public:
             meshes.resize(meshes.size() + 1);
             Mesh &mesh = meshes[meshes.size() - 1];
             mesh.loadOFF(Settings::availableMeshToPath(Settings::Mesh::MESH));
-            // mesh.rotate_x(-90);
-            // mesh.rotate_z(45);
+            mesh.rotate_y(45);
+            mesh.translate(Vec3(-0.5, 0., 0.));
+            mesh.scale(Vec3(2.));
+            mesh.build_arrays();
+            mesh.material.type = Material_DiffUSE_PHONG;
+            mesh.material.diffuse_material = Vec3(1., 0., 0.);
+            mesh.material.specular_material = Vec3(0.2, 0.2, 0.2);
+            mesh.material.shininess = 20;
+        }
+
+        {
+            meshes.resize(meshes.size() + 1);
+            Mesh &mesh = meshes[meshes.size() - 1];
+            mesh.loadOFF(Settings::availableMeshToPath(Settings::Mesh::MESH));
+            mesh.rotate_y(-45);
+            mesh.translate(Vec3(0.5, 0., 0.));
             mesh.scale(Vec3(2.));
             mesh.build_arrays();
             mesh.material.type = Material_DiffUSE_PHONG;

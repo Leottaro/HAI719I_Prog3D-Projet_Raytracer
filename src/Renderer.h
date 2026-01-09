@@ -79,7 +79,7 @@ public:
 private:
     ComputeShader m_shader;
     GLuint m_out_texture;
-    GLuint m_spheres_ssbo, m_squares_ssbo, m_lights_ssbo;
+    GLuint m_spheres_ssbo, m_squares_ssbo, m_lights_ssbo, m_mesh_vertices_ssbo, m_mesh_triangles_ssbo, m_meshes_ssbo;
 
     void createTextures() {
         // Create the output texture
@@ -95,7 +95,7 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
         glBindImageTexture(0, m_out_texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        
+
         glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
@@ -107,7 +107,7 @@ private:
         auto begin = chrono::high_resolution_clock::now();
 
         glDeleteTextures(1, &m_out_texture);
-        
+
         glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
@@ -154,6 +154,53 @@ private:
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 16, nb_lights * sizeof(ShaderLight), shader_lights.data());
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_lights_ssbo);
 
+        unsigned int nb_meshes = meshes.size();
+        vector<ShaderMeshVertex> shader_mesh_vertices;
+        vector<ShaderMeshTriangle> shader_mesh_triangles;
+        vector<ShaderMesh> shader_meshes(nb_lights);
+        for (size_t i = 0; i < nb_meshes; i++) {
+            vector<MeshVertex> const &vertices = meshes[i].vertices;
+            vector<MeshTriangle> const &triangles = meshes[i].triangles;
+            Material const &material = meshes[i].material;
+
+            shader_meshes[i].nb_vertices = vertices.size();
+            shader_meshes[i].vertices_offset = shader_mesh_vertices.size();
+            shader_meshes[i].nb_triangles = triangles.size();
+            shader_meshes[i].triangles_offset = shader_mesh_triangles.size();
+            shader_meshes[i].material.assign(material);
+
+            vector<ShaderMeshVertex> translated_vertices(vertices.size());
+            for (size_t j = 0; j < vertices.size(); j++) {
+                translated_vertices[j].assign(vertices[j]);
+            }
+            shader_mesh_vertices.reserve(shader_mesh_vertices.size() + distance(translated_vertices.begin(), translated_vertices.end()));
+            shader_mesh_vertices.insert(shader_mesh_vertices.end(), translated_vertices.begin(), translated_vertices.end());
+
+            vector<ShaderMeshTriangle> translated_triangles(triangles.size());
+            for (size_t j = 0; j < triangles.size(); j++) {
+                translated_triangles[j].assign(triangles[j]);
+            }
+            shader_mesh_triangles.reserve(shader_mesh_triangles.size() + distance(translated_triangles.begin(), translated_triangles.end()));
+            shader_mesh_triangles.insert(shader_mesh_triangles.end(), translated_triangles.begin(), translated_triangles.end());
+        }
+
+        glGenBuffers(1, &m_mesh_vertices_ssbo);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_mesh_vertices_ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, shader_mesh_vertices.size() * sizeof(ShaderMeshVertex), shader_mesh_vertices.data(), GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_mesh_vertices_ssbo);
+
+        glGenBuffers(1, &m_mesh_triangles_ssbo);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_mesh_triangles_ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, shader_mesh_triangles.size() * sizeof(ShaderMeshTriangle), shader_mesh_triangles.data(), GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_mesh_triangles_ssbo);
+
+        glGenBuffers(1, &m_meshes_ssbo);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshes_ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, 16 + nb_meshes * sizeof(ShaderMesh), NULL, GL_DYNAMIC_DRAW);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(unsigned int), &nb_meshes);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 16, nb_meshes * sizeof(ShaderMesh), shader_meshes.data());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, m_meshes_ssbo);
+
         glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
@@ -167,7 +214,10 @@ private:
         glDeleteBuffers(1, &m_spheres_ssbo);
         glDeleteBuffers(1, &m_squares_ssbo);
         glDeleteBuffers(1, &m_lights_ssbo);
-        
+        glDeleteBuffers(1, &m_mesh_vertices_ssbo);
+        glDeleteBuffers(1, &m_mesh_triangles_ssbo);
+        glDeleteBuffers(1, &m_meshes_ssbo);
+
         glFinish();
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();

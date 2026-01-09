@@ -17,17 +17,17 @@
 struct ShaderMaterial {
     float ambient_material[3];
     float shininess;
-    
+
     float diffuse_material[3];
     float index_medium;
-    
+
     float specular_material[3];
     float transparency;
-    
+
     int image_id;
     unsigned int type;
     float _pad0[2];
-    
+
     ShaderMaterial() {}
 
     void assign(Material const &material) {
@@ -61,10 +61,10 @@ struct ShaderSphere {
 };
 
 struct ShaderSquare {
-    float m_normal[4]; // vec3 + padding
-    float m_bottom_left[4]; // vec3 + padding
+    float m_normal[4];       // vec3 + padding
+    float m_bottom_left[4];  // vec3 + padding
     float m_right_vector[4]; // vec3 + padding
-    float m_up_vector[4]; // vec3 + padding
+    float m_up_vector[4];    // vec3 + padding
     ShaderMaterial material;
 
     ShaderSquare() {}
@@ -103,6 +103,50 @@ struct ShaderLight {
             material[i] = light.material[i];
         }
     }
+};
+
+struct ShaderMeshVertex {
+    float position[3];
+    float u;
+
+    float normal[3];
+    float v;
+
+    ShaderMeshVertex() {}
+
+    void assign(MeshVertex const &vertex) {
+        u = vertex.u;
+        v = vertex.v;
+        for (unsigned char i = 0; i < 3; i++) {
+            position[i] = vertex.position[i];
+            normal[i] = vertex.normal[i];
+        }
+    }
+};
+
+struct ShaderMeshTriangle {
+    unsigned int v0;
+    unsigned int v1;
+    unsigned int v2;
+
+    ShaderMeshTriangle() {}
+
+    void assign(MeshTriangle const &triangle) {
+        v0 = triangle[0];
+        v1 = triangle[1];
+        v2 = triangle[2];
+    }
+};
+
+struct ShaderMesh {
+    unsigned int nb_vertices;
+    unsigned int vertices_offset;
+    unsigned int nb_triangles;
+    unsigned int triangles_offset;
+
+    ShaderMaterial material;
+
+    ShaderMesh() {}
 };
 
 // https://learnopengl.com/Guest-Articles/2022/Compute-Shaders/Introduction

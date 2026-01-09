@@ -309,7 +309,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    Settings::selected_preset = Settings::Presets::PHASE_3_NO_INTERPOLATION;
+    Settings::selected_preset = Settings::Presets::PHASE_3_INTERPOLATION;
     Settings::selected_renderer = 2;
     Settings::applySelectedPreset();
 
