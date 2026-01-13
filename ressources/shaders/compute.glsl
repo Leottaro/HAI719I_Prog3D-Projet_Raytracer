@@ -152,6 +152,8 @@ uniform dmat4 projectionInverse;
 uniform float min_t;
 uniform float max_t;
 
+layout(binding = 7) uniform sampler2DArray images;
+
 uniform Settings settings;
 
 ivec3 screen_coords = ivec3(gl_GlobalInvocationID.xyz);
@@ -684,8 +686,7 @@ float computeShadowIndex(in Ray ray, in RaySceneIntersection intersection, in Li
 vec3 phong(in Ray ray, in RaySceneIntersection intersection) {
   const Material material = intersection.material;
   const vec3 P = intersection.intersection;
-  // const vec3 kd = settings.Bonus.ENABLE_TEXTURES && material.image_id >= 0 && !images[material.image_id].data.empty() ? images[material.image_id].getPixel(intersection.u, intersection.v) : material.diffuse_material;
-  const vec3 kd = material.diffuse_material;
+  const vec3 kd = settings.Bonus.ENABLE_TEXTURES && material.image_id >= 0 ? texture(images, vec3(intersection.u, intersection.v, material.image_id)).rgb : material.diffuse_material;
 
   if (!settings.Phong.ENABLED) {
     return kd;

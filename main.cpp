@@ -94,12 +94,13 @@ void initLight() {
 }
 
 void initRenderers() {
-    renderers.resize(5);
+    renderers.resize(6);
     renderers[0].setup_single_sphere();
     renderers[1].setup_single_square();
     renderers[2].setup_cornell_box();
     renderers[3].setup_single_mesh();
     renderers[4].setup_refraction_test();
+    renderers[5].setup_showcase();
 }
 
 void init() {
@@ -309,9 +310,9 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    Settings::selected_preset = Settings::Presets::PHASE_3_INTERPOLATION;
-    Settings::selected_renderer = 2;
+    Settings::selected_preset = Settings::Presets::SHOWCASE_QUALITY;
     Settings::applySelectedPreset();
+    Settings::selected_renderer = 1;
 
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);

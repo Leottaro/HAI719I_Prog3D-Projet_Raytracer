@@ -20,8 +20,8 @@ public:
         PHASE_3_INTERPOLATION,
         PHASE_4_REFRACTION,
         PHASE_4_KDTREE,
-        SHOWCASE_PERFORMANCE,
         SHOWCASE_QUALITY,
+        SHOWCASE_PERFORMANCE,
     };
 
     enum class AvailableMeshes {
@@ -179,7 +179,7 @@ public:
             break;
         case Presets::PHASE_3_NO_INTERPOLATION:
             selected_renderer = 3;
-            NSAMPLES = 4;
+            NSAMPLES = 16;
             MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
@@ -195,7 +195,7 @@ public:
             break;
         case Presets::PHASE_3_INTERPOLATION:
             selected_renderer = 3;
-            NSAMPLES = 4;
+            NSAMPLES = 16;
             MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
             SCREEN_WIDTH = 480;
@@ -241,22 +241,8 @@ public:
             KdTree::MAX_LEAF_SIZE = 32;
             Bonus::ENABLE_TEXTURES = false;
             break;
-        case Presets::SHOWCASE_PERFORMANCE:
-            NSAMPLES = 4;
-            MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
-            Mesh::MESH = AvailableMeshes::FEMALE01;
-            Mesh::ENABLE_INTERPOLATION = true;
-            Phong::ENABLED = true;
-            Phong::SHADOW_RAYS = 4;
-            Material::ENABLE_MIRROR = true;
-            Material::ENABLE_GLASS = true;
-            Material::AIR_INDEX_MEDIUM = 1.0;
-            KdTree::MAX_LEAF_SIZE = 32;
-            Bonus::ENABLE_TEXTURES = true;
-            break;
         case Presets::SHOWCASE_QUALITY:
+            selected_renderer = 5;
             NSAMPLES = 16;
             MAX_BOUNCES = 100;
             SCREEN_HEIGHT = 480;
@@ -265,6 +251,22 @@ public:
             Mesh::ENABLE_INTERPOLATION = true;
             Phong::ENABLED = true;
             Phong::SHADOW_RAYS = 16;
+            Material::ENABLE_MIRROR = true;
+            Material::ENABLE_GLASS = true;
+            Material::AIR_INDEX_MEDIUM = 1.0;
+            KdTree::MAX_LEAF_SIZE = 32;
+            Bonus::ENABLE_TEXTURES = true;
+            break;
+        case Presets::SHOWCASE_PERFORMANCE:
+            selected_renderer = 5;
+            NSAMPLES = 4;
+            MAX_BOUNCES = 100;
+            SCREEN_HEIGHT = 480;
+            SCREEN_WIDTH = 480;
+            Mesh::MESH = AvailableMeshes::FEMALE01;
+            Mesh::ENABLE_INTERPOLATION = true;
+            Phong::ENABLED = true;
+            Phong::SHADOW_RAYS = 4;
             Material::ENABLE_MIRROR = true;
             Material::ENABLE_GLASS = true;
             Material::AIR_INDEX_MEDIUM = 1.0;

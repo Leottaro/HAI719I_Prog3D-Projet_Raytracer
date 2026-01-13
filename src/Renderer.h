@@ -79,7 +79,7 @@ public:
 private:
     ComputeShader m_shader;
     GLuint m_out_texture;
-    GLuint m_spheres_ssbo, m_squares_ssbo, m_lights_ssbo, m_mesh_vertices_ssbo, m_mesh_triangles_ssbo, m_meshes_ssbo;
+    GLuint m_spheres_ssbo, m_squares_ssbo, m_lights_ssbo, m_mesh_vertices_ssbo, m_mesh_triangles_ssbo, m_meshes_ssbo, m_images_array;
 
     void createTextures() {
         // Create the output texture
@@ -95,6 +95,22 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
         glBindImageTexture(0, m_out_texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+        glGenTextures(1, &m_images_array);
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, m_images_array);
+        unsigned int nb_images = images.size();
+        for (size_t i = 0; i < nb_images; i++) {
+            vector<float> image_data(images[i].w * images[i].h * 4);
+            for (size_t j = 0; j < images[i].w * images[i].h; j++) {
+                image_data[j * 4] = float(images[i].data[j].r) / 255.;
+                image_data[j * 4 + 1] = float(images[i].data[j].g) / 255.;
+                image_data[j * 4 + 2] = float(images[i].data[j].b) / 255.;
+                image_data[j * 4 + 3] = 1.;
+            }
+            glTexStorage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA32F, images[i].w, images[i].h, 1);
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, images[i].w, images[i].h, 1, GL_RGBA, GL_FLOAT, image_data.data());
+        }
 
         glFinish();
         auto end = chrono::high_resolution_clock::now();
@@ -225,9 +241,6 @@ private:
     }
 
     void updateGeneralUniforms(float _min_t, float _max_t) {
-        m_shader.set("imgOutput", 0);
-        m_shader.set("randomTexture2", 1);
-
         GLdouble projection[16];
         GLdouble projectionInverse[16];
         glMatrixMode(GL_PROJECTION);
@@ -241,12 +254,18 @@ private:
         glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
         gluInvertMatrix(modelview, modelviewInverse);
 
+        // m_shader.set("imgOutput", 0);
         m_shader.set("nearAndFarPlanes", nearAndFarPlanes[0], nearAndFarPlanes[1]);
         m_shader.set("projectionInverse", projectionInverse);
         m_shader.set("modelviewInverse", modelviewInverse);
-
         m_shader.set("min_t", _min_t);
         m_shader.set("max_t", _max_t);
+        m_shader.set("images", 7);
+        // m_shader.set("IMAGE", 8);
+
+        // for (size_t i = 0; i < images.size(); i++) {
+        //     m_shader.set("images[" + std::to_string(i) + "]", m_images[i]);
+        // }
     }
 
     void updateSettingsUniforms() {
