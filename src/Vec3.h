@@ -31,6 +31,9 @@ public:
         mVals[2] = other[2];
         return *this;
     }
+    float *valuePtr() { return mVals; }
+    const float *valuePtr() const { return mVals; }
+
     float squareLength() const {
         return mVals[0] * mVals[0] + mVals[1] * mVals[1] + mVals[2] * mVals[2];
     }
@@ -113,8 +116,14 @@ static inline Vec3 operator*(float a, Vec3 const &b) {
 static inline Vec3 operator*(Vec3 const &b, float a) {
     return Vec3(a * b[0], a * b[1], a * b[2]);
 }
+static inline Vec3 operator*(Vec3 const &a, Vec3 const &b) {
+    return Vec3(a[0] * b[0], a[1] * b[1], a[2] * b[2]);
+}
 static inline Vec3 operator/(Vec3 const &a, float b) {
     return Vec3(a[0] / b, a[1] / b, a[2] / b);
+}
+static inline Vec3 operator/(Vec3 const &a, Vec3 const &b) {
+    return Vec3(a[0] / b[0], a[1] / b[1], a[2] / b[2]);
 }
 static inline ostream &operator<<(ostream &s, Vec3 const &p) {
     s << p[0] << " " << p[1] << " " << p[2];

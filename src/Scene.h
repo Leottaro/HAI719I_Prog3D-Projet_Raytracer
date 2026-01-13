@@ -13,8 +13,8 @@
 using namespace std;
 
 enum LightType {
-    LightType_Spherical,
-    LightType_Quad
+    LightType_Spherical = 1,
+    LightType_Quad = 2
 };
 
 struct Light {
@@ -103,6 +103,7 @@ public:
 };
 
 class Scene {
+public:
     vector<Mesh> meshes;
     vector<Sphere> spheres;
     vector<Square> squares;
@@ -167,26 +168,13 @@ private:
 
         Vec3 v_reflect = di - 2. * dn * Vec3::dot(di, dn);
         v_reflect.normalize();
-        Ray reflection_ray = Ray(intersection.intersection, v_reflect, ray.index_mediums, ray.object_types, ray.object_indices);
+        Ray reflection_ray = Ray(intersection.intersection, v_reflect, ray);
         return reflection_ray;
     }
 
     Ray computeRefractionRay(Ray ray, RaySceneIntersection &intersection) {
         float nL, nT;
-        if (ray.object_types[ray.object_types.size() - 1] == static_cast<unsigned int>(intersection.typeOfIntersectedObject) &&
-            ray.object_indices[ray.object_indices.size() - 1] == intersection.objectIndex) {
-            nL = ray.index_mediums[ray.index_mediums.size() - 1];
-            ray.index_mediums.pop_back();
-            ray.object_types.pop_back();
-            ray.object_indices.pop_back();
-            nT = ray.index_mediums[ray.index_mediums.size() - 1];
-        } else {
-            nL = ray.index_mediums[ray.index_mediums.size() - 1];
-            ray.index_mediums.push_back(intersection.material.index_medium);
-            ray.object_types.push_back(static_cast<unsigned int>(intersection.typeOfIntersectedObject));
-            ray.object_indices.push_back(intersection.objectIndex);
-            nT = ray.index_mediums[ray.index_mediums.size() - 1];
-        }
+        ray.getRayInOutIndexMediums(intersection.material.index_medium, intersection.typeOfIntersectedObject, intersection.objectIndex, nL, nT);
 
         // https://amrhmorsy.github.io/blog/2024/RefractionVectorCalculation/
         Vec3 L = ray.direction();
@@ -201,14 +189,14 @@ private:
             float r = nL / nT;
             float c = Vec3::dot(N, L);
             Vec3 T = N * (-r * c - sqrt(1 - r * r * (1 - c * c))) + L * r; // v_refract
-            Ray refraction_ray = Ray(intersection.intersection, T, ray.index_mediums, ray.object_types, ray.object_indices);
+            Ray refraction_ray = Ray(intersection.intersection, T, ray);
             return refraction_ray;
         } else {
             return computeReflectionRay(ray, intersection);
         }
     }
 
-    float computeShadowIndex(const Ray &ray, const RaySceneIntersection &intersection, const Light &light, int max_t) {
+    float computeShadowIndex(const Ray &ray, const RaySceneIntersection &intersection, const Light &light) {
         int shadow_count = 0;
         for (unsigned int i = 0; i < Settings::Phong::SHADOW_RAYS; i++) {
             Vec3 sampled_pos;
@@ -227,7 +215,7 @@ private:
                 }
             }
             Vec3 direction = intersection.intersection - sampled_pos;
-            Ray shadow_ray = Ray(sampled_pos, direction, ray.index_mediums, ray.object_types, ray.object_indices);
+            Ray shadow_ray = Ray(sampled_pos, direction, ray);
             RaySceneIntersection shadow_intersection = computeIntersection(shadow_ray, Settings::EPSILON, direction.length() - Settings::EPSILON, true);
             if (shadow_intersection.intersectionExists && shadow_intersection.typeOfIntersectedObject != LightIntersection) {
                 shadow_count++;
@@ -236,7 +224,7 @@ private:
         return (float)shadow_count / Settings::Phong::SHADOW_RAYS;
     }
 
-    Vec3 phong(Ray const &ray, RaySceneIntersection const &intersection, int max_t, int NRemainingBounces) {
+    Vec3 phong(Ray const &ray, RaySceneIntersection const &intersection) {
         const Material &material = intersection.material;
         const Vec3 &P = intersection.intersection;
         const Vec3 kd = Settings::Bonus::ENABLE_TEXTURES && material.image_id >= 0 && !images[material.image_id].data.empty() ? images[material.image_id].getPixel(intersection.u, intersection.v) : material.diffuse_material;
@@ -270,7 +258,7 @@ private:
             Vec3 L = light_pos - P;
             L.normalize();
 
-            float shadow_index = Settings::Phong::SHADOW_RAYS > 0 ? computeShadowIndex(ray, intersection, light, max_t) : 0.;
+            float shadow_index = Settings::Phong::SHADOW_RAYS > 0 ? computeShadowIndex(ray, intersection, light) : 0.;
 
             float LdotN = Vec3::dot(L, N);
             Vec3 R = 2. * N * LdotN - L;
@@ -287,50 +275,67 @@ private:
 public:
     Scene() {}
 
-    void draw() {
-        // iterer sur l'ensemble des objets, et faire leur rendu :
-        for (unsigned int It = 0; It < meshes.size(); ++It) {
-            Mesh const &mesh = meshes[It];
-            mesh.draw();
-        }
-        for (unsigned int It = 0; It < spheres.size(); ++It) {
-            Sphere const &sphere = spheres[It];
-            sphere.draw();
-        }
-        for (unsigned int It = 0; It < squares.size(); ++It) {
-            Square const &square = squares[It];
-            square.draw();
-        }
-    }
-
-    Vec3 rayTraceRecursive(Ray ray, float min_t, float max_t, int NRemainingBounces) {
+    Vec3 rayTraceRecursive(Ray const &ray, float min_t, float max_t, int NRemainingBounces) {
         RaySceneIntersection raySceneIntersection = computeIntersection(ray, min_t, max_t, false);
         if (!raySceneIntersection.intersectionExists) {
             return Vec3();
         }
 
         Material material = raySceneIntersection.material;
-        Vec3 I = phong(ray, raySceneIntersection, max_t, NRemainingBounces);
+        Vec3 color;
 
         if (Settings::Material::ENABLE_GLASS && material.type == Material_Glass && NRemainingBounces > 0) {
             Ray refraction = computeRefractionRay(ray, raySceneIntersection);
-            I = rayTraceRecursive(refraction, Settings::EPSILON, max_t, NRemainingBounces - 1);
-        }
-
-        if (Settings::Material::ENABLE_MIRROR && material.type == Material_Mirror && NRemainingBounces > 0) {
+            color = rayTraceRecursive(refraction, Settings::EPSILON, max_t, NRemainingBounces - 1);
+        } else if (Settings::Material::ENABLE_MIRROR && material.type == Material_Mirror && NRemainingBounces > 0) {
             Ray reflection = computeReflectionRay(ray, raySceneIntersection);
-            I = rayTraceRecursive(reflection, Settings::EPSILON, max_t, NRemainingBounces - 1);
+            color = rayTraceRecursive(reflection, Settings::EPSILON, max_t, NRemainingBounces - 1);
+        } else {
+            color = phong(ray, raySceneIntersection);
         }
 
-        I[0] = min(max(0.f, I[0]), 1.f);
-        I[1] = min(max(0.f, I[1]), 1.f);
-        I[2] = min(max(0.f, I[2]), 1.f);
+        color[0] = min(max(0.f, color[0]), 1.f);
+        color[1] = min(max(0.f, color[1]), 1.f);
+        color[2] = min(max(0.f, color[2]), 1.f);
 
-        return I;
+        return color;
+    }
+
+    Vec3 rayTraceIterative(Ray ray, float min_t, float max_t, int max_bounces) {
+        Vec3 color;
+        int bounces = 0;
+
+        for (bounces = 0; bounces <= max_bounces; bounces++) {
+            RaySceneIntersection intersection = computeIntersection(ray, min_t, max_t, false);
+            if (!intersection.intersectionExists) {
+                color = Vec3();
+                break;
+            }
+
+            if (Settings::Material::ENABLE_GLASS && intersection.material.type == Material_Glass) {
+                ray = computeRefractionRay(ray, intersection);
+            } else if (Settings::Material::ENABLE_MIRROR && intersection.material.type == Material_Mirror) {
+                ray = computeReflectionRay(ray, intersection);
+            } else {
+                color = phong(ray, intersection);
+
+                color[0] = std::min(std::max(0.f, color[0]), 1.f);
+                color[1] = std::min(std::max(0.f, color[1]), 1.f);
+                color[2] = std::min(std::max(0.f, color[2]), 1.f);
+
+                break;
+            }
+
+            min_t = Settings::EPSILON;
+        }
+
+        return color;
+        // return Vec3(float(bounces) / 255.);
     }
 
     Vec3 rayTrace(Ray const &rayStart, float min_t = Settings::EPSILON, float max_t = FLT_MAX) {
-        Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, Settings::MAX_BOUNCES);
+        // Vec3 color = rayTraceRecursive(rayStart, min_t, max_t, Settings::MAX_BOUNCES);
+        Vec3 color = rayTraceIterative(rayStart, min_t, max_t, Settings::MAX_BOUNCES);
         return color;
     }
 
@@ -344,7 +349,7 @@ public:
         {
             images.resize(images.size() + 1);
             ppmLoader::ImageRGB &image = images[images.size() - 1];
-            ppmLoader::load_ppm(image, "img/sphereTextures/s1.ppm");
+            ppmLoader::load_ppm(image, "ressources/img/sphereTextures/s1.ppm");
         }
 
         {
@@ -444,7 +449,7 @@ public:
         {
             images.resize(images.size() + 1);
             ppmLoader::ImageRGB &image = images[images.size() - 1];
-            ppmLoader::load_ppm(image, "img/test/128.ppm");
+            ppmLoader::load_ppm(image, "ressources/img/test/128.ppm");
         }
 
         // { // Light quad
@@ -585,7 +590,7 @@ public:
         {
             images.resize(images.size() + 1);
             ppmLoader::ImageRGB &image = images[images.size() - 1];
-            ppmLoader::load_ppm(image, "img/test/128.ppm");
+            ppmLoader::load_ppm(image, "ressources/img/test/128.ppm");
         }
 
         {
@@ -602,8 +607,22 @@ public:
             meshes.resize(meshes.size() + 1);
             Mesh &mesh = meshes[meshes.size() - 1];
             mesh.loadOFF(Settings::availableMeshToPath(Settings::Mesh::MESH));
-            // mesh.rotate_x(-90);
-            // mesh.rotate_z(45);
+            mesh.rotate_y(45);
+            mesh.translate(Vec3(-0.5, 0., 0.));
+            mesh.scale(Vec3(2.));
+            mesh.build_arrays();
+            mesh.material.type = Material_DiffUSE_PHONG;
+            mesh.material.diffuse_material = Vec3(1., 0., 0.);
+            mesh.material.specular_material = Vec3(0.2, 0.2, 0.2);
+            mesh.material.shininess = 20;
+        }
+
+        {
+            meshes.resize(meshes.size() + 1);
+            Mesh &mesh = meshes[meshes.size() - 1];
+            mesh.loadOFF(Settings::availableMeshToPath(Settings::Mesh::MESH));
+            mesh.rotate_y(-45);
+            mesh.translate(Vec3(0.5, 0., 0.));
             mesh.scale(Vec3(2.));
             mesh.build_arrays();
             mesh.material.type = Material_DiffUSE_PHONG;
@@ -636,7 +655,7 @@ public:
         {
             images.resize(images.size() + 1);
             ppmLoader::ImageRGB &image = images[images.size() - 1];
-            ppmLoader::load_ppm(image, "img/test/1024.ppm");
+            ppmLoader::load_ppm(image, "ressources/img/test/1024.ppm");
         }
 
         {
@@ -676,7 +695,7 @@ public:
             s.material.specular_material = Vec3(1., 1., 0.);
             s.material.shininess = 16;
             s.material.transparency = 1.;
-            s.material.index_medium = 1.51;
+            s.material.index_medium = 1.;
         }
     }
 };

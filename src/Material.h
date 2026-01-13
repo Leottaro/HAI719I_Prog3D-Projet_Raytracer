@@ -7,9 +7,9 @@
 #include <cmath>
 
 enum MaterialType {
-    Material_DiffUSE_PHONG,
-    Material_Glass,
-    Material_Mirror
+    Material_DiffUSE_PHONG = 1,
+    Material_Glass = 2,
+    Material_Mirror = 3
 };
 
 struct Material {

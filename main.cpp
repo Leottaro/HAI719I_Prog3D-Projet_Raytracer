@@ -15,6 +15,7 @@
 // -------------------------------------------
 
 #include "src/Camera.h"
+#include "src/Renderer.h"
 #include "src/Scene.h"
 #include "src/Settings.h"
 #include "src/Vec3.h"
@@ -44,8 +45,10 @@ static bool mouseZoomPressed = false;
 static int lastX = 0, lastY = 0, lastZoom = 0;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
+static unsigned int old_width = 0;
+static unsigned int old_height = 0;
 
-vector<Scene> scenes;
+vector<Renderer> renderers;
 
 vector<pair<Vec3, Vec3>> rays;
 
@@ -90,19 +93,25 @@ void initLight() {
     glEnable(GL_LIGHTING);
 }
 
-void initScenes() {
-    scenes.resize(5);
-    scenes[0].setup_single_sphere();
-    scenes[1].setup_single_square();
-    scenes[2].setup_cornell_box();
-    scenes[3].setup_single_mesh();
-    scenes[4].setup_refraction_test();
+void initRenderers() {
+    renderers.resize(5);
+    renderers[0].setup_single_sphere();
+    renderers[1].setup_single_square();
+    renderers[2].setup_cornell_box();
+    renderers[3].setup_single_mesh();
+    renderers[4].setup_refraction_test();
 }
 
 void init() {
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        std::cerr << "GLEW Initialization Error: " << glewGetErrorString(err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
     camera.resize(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT);
     initLight();
-    initScenes();
+    initRenderers();
     // glCullFace (GL_BACK);
     glDisable(GL_CULL_FACE);
     glDepthFunc(GL_LESS);
@@ -126,7 +135,7 @@ void clear() {
 
 void draw() {
     glEnable(GL_LIGHTING);
-    scenes[Settings::selected_scene].draw();
+    renderers[Settings::selected_renderer].draw();
 
     // draw rays : (for debug)
     //  cout << rays.size() << endl;
@@ -167,51 +176,16 @@ void idle() {
     glutPostRedisplay();
 }
 
-void ray_trace_from_camera() {
-    int w = glutGet(GLUT_WINDOW_WIDTH), h = glutGet(GLUT_WINDOW_HEIGHT);
-    cout << "Ray tracing a " << w << " x " << h << " image (" << Settings::selected_preset << "):" << endl;
-    camera.apply();
-    Vec3 pos, dir;
-    vector<Vec3> image(w * h, Vec3(0, 0, 0));
-
-    int n_pixels = h * w;
-    auto begin = chrono::high_resolution_clock::now();
-
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int pixel_i = y * w + x + 1;
-
-            float percent = (float)pixel_i / n_pixels;
-            int64_t currently_elapsed = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - begin).count();
-            float remaining_ms = (currently_elapsed / percent) * (1. - percent);
-
-            cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << 100.f * percent << "% completed) ~" << remaining_ms / 1000. << "s remaining     " << flush;
-            for (unsigned int s = 0; s < Settings::NSAMPLES; ++s) {
-                float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / w;
-                float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / h;
-                // this is a random uv that belongs to the pixel xy.
-                screen_space_to_world_space_ray(u, v, pos, dir);
-                Vec3 color = scenes[Settings::selected_scene].rayTrace(Ray(pos, dir), 0., camera.getFarPlane());
-                image[x + y * w] += color;
-            }
-            image[x + y * w] /= (float)Settings::NSAMPLES;
-        }
-    }
-    auto end = chrono::high_resolution_clock::now();
-    auto elapsed = chrono::duration_cast<chrono::seconds>(end - begin).count();
-    cout << endl
-         << "\tDone in " << elapsed << " seconds." << endl;
-
-    string filename = "./rendu.ppm";
+void writePPM(vector<Vec3> image, string filename) {
     ofstream f(filename.c_str(), ios::binary);
     if (f.fail()) {
         cout << "Could not open file: " << filename << endl;
         return;
     }
     f << "P3" << endl
-      << w << " " << h << endl
+      << Settings::SCREEN_WIDTH << " " << Settings::SCREEN_HEIGHT << endl
       << 255 << endl;
-    for (int i = 0; i < w * h; i++)
+    for (unsigned int i = 0; i < Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT; i++)
         f << (int)(255.f * min<float>(1.f, image[i][0])) << " " << (int)(255.f * min<float>(1.f, image[i][1])) << " " << (int)(255.f * min<float>(1.f, image[i][2])) << " ";
     f << endl;
     f.close();
@@ -222,11 +196,13 @@ void key(unsigned char keyPressed, int x, int y) {
     switch (keyPressed) {
     case 'f':
         if (fullScreen == true) {
-            glutReshapeWindow(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT);
+            glutReshapeWindow(old_width, old_height);
             fullScreen = false;
         } else {
             glutFullScreen();
             fullScreen = true;
+            old_width = Settings::SCREEN_WIDTH;
+            old_height = Settings::SCREEN_HEIGHT;
         }
         break;
     case 'q':
@@ -246,10 +222,19 @@ void key(unsigned char keyPressed, int x, int y) {
     case 'r':
         camera.apply();
         rays.clear();
-        ray_trace_from_camera();
+        writePPM(renderers[Settings::selected_renderer].rayTraceFromCameraCPU(camera.getNearPlane(), camera.getFarPlane()), "rendu.ppm");
+        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        break;
+    case 'R':
+        camera.apply();
+        rays.clear();
+        writePPM(renderers[Settings::selected_renderer].rayTraceFromCameraGPU(camera.getNearPlane(), camera.getFarPlane()), "renduGPU.ppm");
+        break;
+    case '-':
+        Settings::selected_renderer = (Settings::selected_renderer + renderers.size() - 1) % renderers.size();
         break;
     case '+':
-        Settings::selected_scene = (Settings::selected_scene + 1) % scenes.size();
+        Settings::selected_renderer = (Settings::selected_renderer + 1) % renderers.size();
         break;
     case 'p':
         Settings::selected_preset = static_cast<Settings::Presets>((static_cast<int>(Settings::selected_preset) + 1) % Settings::NB_PRESETS);
@@ -258,7 +243,7 @@ void key(unsigned char keyPressed, int x, int y) {
         cout << "Settings preset set to: " << Settings::selected_preset << endl;
         break;
     case 'P':
-        Settings::selected_preset = static_cast<Settings::Presets>((static_cast<int>(Settings::selected_preset) - 1 + Settings::NB_PRESETS) % Settings::NB_PRESETS);
+        Settings::selected_preset = static_cast<Settings::Presets>((static_cast<int>(Settings::selected_preset) + Settings::NB_PRESETS - 1) % Settings::NB_PRESETS);
         Settings::applySelectedPreset();
         init();
         cout << "Settings preset set to: " << Settings::selected_preset << endl;
@@ -314,6 +299,8 @@ void motion(int x, int y) {
 
 void reshape(int w, int h) {
     camera.resize(w, h);
+    Settings::SCREEN_WIDTH = w;
+    Settings::SCREEN_HEIGHT = h;
 }
 
 int main(int argc, char **argv) {
@@ -322,8 +309,8 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    Settings::selected_preset = Settings::Presets::PHASE_1;
-    Settings::selected_scene = 2;
+    Settings::selected_preset = Settings::Presets::PHASE_3_INTERPOLATION;
+    Settings::selected_renderer = 2;
     Settings::applySelectedPreset();
 
     glutInit(&argc, argv);
@@ -339,6 +326,7 @@ int main(int argc, char **argv) {
     glutMotionFunc(motion);
     glutMouseFunc(mouse);
     key('?', 0, 0);
+    cout << "Settings preset set to: " << Settings::selected_preset << endl;
 
     camera.move(0., 0., -3.1);
 
