@@ -1,0 +1,186 @@
+\documentclass[a4paper, 12pt]{article}
+\usepackage[top=2cm, bottom=2cm, left=2cm, right=2cm]{geometry}
+\usepackage[french]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bookmark}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{minted}
+\usepackage{ragged2e}
+\usepackage{xcolor}
+\usepackage{yfonts}
+\usepackage{titling}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{caption}
+\usepackage{multicol}
+\usepackage{tabto}
+\usepackage{svg}
+\usepackage{array}
+\usepackage{tikz}
+\usepackage{colortbl}
+\usepackage{csvsimple}
+\usepackage{booktabs}
+
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.15}
+\usepackage{mathrsfs}
+\usetikzlibrary{arrows}
+
+\usepackage[normalem]{ulem}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\frenchsetup{StandardLayout=true}
+
+
+\setlength{\droptitle}{-5em}  
+\pretitle{\centering\LARGE\bfseries}
+\posttitle{\par\vskip 1cm}
+\preauthor{\centering\large}
+\postauthor{\par}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!red,
+  urlcolor=green!70!black
+}
+
+\title{
+    HAI719I – Programmation 3D\\ 
+    \large Rendu projet phase 4
+}
+\date{16/01/2026}
+\author{Léo Hafdane – e22202516}
+\renewcommand{\contentsname}{Table des matières}
+
+
+
+\begin{document}
+
+\pagenumbering{gobble}
+\maketitle
+\begin{center}
+    \vfill
+    \includegraphics[width=\textwidth]{ressources/preview.png}
+    \vfill
+    M1 Informatique – IMAGINE \\ Faculté des Sciences \\ Université de Montpellier. \\
+    \includegraphics[width=0.225\textwidth]{ressources/logo_UM.png}
+\end{center}
+
+\begin{justify}
+
+\newpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+
+\section{Settings et présets}
+
+
+Dans la phase 3, j'ai introduit un système de Paramètres globaux (dans \verb*|Settings|) et de presets qu'on peut changer.
+Cette partie introduits plusieurs paramètres: \verb*|ENABLE_GLASS| , \verb*|AIR_INDEX_MEDIUM| et \verb*|MAX_LEAF_SIZE|
+ainsi que les nouveaux presets \verb*|PHASE_4_REFRACTION| et \verb*|PHASE_4_KDTREE| on peut toujours changer de preset avec $p$ et $P$.
+
+
+
+\section{Réfraction}
+
+
+
+Pour la réfraction, je me suis aidé de cette partie de page \href{https://en.wikipedia.org/wiki/Refractive_index#Refraction}{wikipédia} (en plus de \href{https://en.wikipedia.org/wiki/Refraction}{celle-ci}) pour comprendre le phénomène et de \href{https://amrhmorsy.github.io/blog/2024/RefractionVectorCalculation/}{ce site} pour m'aider à implémenter la réfraction en elle-même.
+Tout ceci se retrouve dans ma fonction \verb*|Scene::computeRefractionRay|.
+
+Puisque ce calcul dépends de la densité du matériau que le rayon quitte et de celle dans lequel il entre, il faut que les rayons gardent en mémoire les objets par lequels ils sont passés ainsi que leur densité.
+La structure \verb*|Ray| contiens maintenant une liste initialisée avec un \verb*|index_medium| à 1, celui de l'air.
+Je suis parti du principe que la caméra ne se trouve jamais dans un solide.
+
+\begin{figure}[H]
+    \centering
+    \href{run:ressources/refraction.mp4}{\includegraphics[height=0.8\textwidth]{ressources/refraction_thumbnail.png}}
+    \caption{Cliquez sur l'image pour voir une démonstration vidéo (boucle).}
+    \subcaptionsetup{Sinon elle est \hyperlink{}{ici}}
+\end{figure}
+
+
+\newpage
+\section{KdTree}
+
+\subsection{Bounding box}
+
+Avant de faire mon KdTree, j'ai eu besoin de coder une axis-aligned bounding box (AABB).
+En effet, lors d'une intersection avec le KdTree, on vérifie dans un premier temps si le rayon touche la AABB.
+Cela nous permettra de savoir dans quelle branche aller pendant le calcul d'intersection.
+De plus, cela permets également d'éviter de faire des calculs d'intersection sur une mesh qu'on est sûr de ne pas toucher, accélérant ainsi tous les autres rayons.
+
+Pour construire une AABB, il suffit d'itérer sur tous les triangles et de garder en mémoire les composants minimum et maximum de chaque axe.
+La AABB finale étant le cube formé par $min_{x,y,z}$ et $max_{x,y,z}$.
+
+\subsection{Construction}
+
+Un KdTree est défini par son ensemble de triangles $T$ où $|T|=n$, une AABB, un paramètre $\alpha$ décrivant le nombre maximal de triangles dans une feuille, $s$ son axe de coupe ainsi que deux enfants $k_1$ et $k_2$.
+L'idée du KdTree va de pair avec sa construction:
+\begin{itemize}
+    \item Si $n$ < $\alpha$ Alors le KdTree est une feuille, il n'a pas d'enfants mais garde son ensemble de triangles.
+    \item Sinon, le KdTree doit avoir deux enfants, avec deux nouveaux ensemble de triangles et deux nouvelles AABB:
+        \begin{enumerate}
+            \item Trier $T$ et calculer $C$ le centroïde médian sur l'axe $s$.
+            \item Séparer $T$ et deux tableaux $T_1$ et $T_2$ tq $T_1$ contiens tous les triangles qui ont au moins un point à gauche de $C$ sur l'axe $s$ (resp. $T_2$ à droite).
+            \item Calculer les deux nouvelles AABB.
+            \item Construire les deux enfants de la même manière mais avec $s = (s+1)\%3$
+        \end{enumerate}
+\end{itemize}
+
+\subsection{Intersection}
+
+L'intersection consiste en un simple parcours d'arbre, Si le KdTree actuel est une feuille alors il teste l'intersection à la bounding box des deux enfants. Et les parcours en premier la AABB ayant le plus petit $t$ et l'autre ensuite.
+
+\subsection{Benchmarks}
+
+Pour tester l'efficacité de mon KdTree, j'ai fais des benchmarks qui teste pour chaque mesh disponible une taille maximale de feuille de 0 et les premières puissance de 2.
+Cela m'a donné un gros fichier csv: $raw\_mesh\_benchmark.csv$ avec 3 colonnes: \verb*|Mesh;MaxLeafSize;ElapsedMs|. En le lisant, on peut voir que les performances augmentent énormément entre une taille de feuille de 0 (pas de KdTree) et un taille de feuille de 1. Que ensuite, les performances stagnent relativement jusqu'a 8 triangles par feuille pour finalement augmenter jusqu'à atteindre les mêmes performances que sans KdTree.
+
+% TODO:
+% From ressources/mesh_benchmark.csv that has "Mesh;MaxLeafSize;AvgElapsedMs" headers that features 9 different "Mesh" with 33 different "MaxLeafSize"
+% 1. Plot all meshes in one plot: Make one line plot: x = MaxLeafSize, y = AvgElapsedMs, colored by Mesh. use a log scale on the y-axis because times vary a lot between meshes. This highlights which meshes are more sensitive to MaxLeafSize and which remain flat.
+% 2. Relative speedup vs reference Using Mesh=NONE as a reference: Compute speedup = AvgElapsedMs(NONE) / AvgElapsedMs(mesh, MaxLeafSize). Plot x = MaxLeafSize, y = speedup, one line per mesh, to show how much each mesh benefits from the structure compared to the baseline.
+
+\newpage
+
+\subsubsection{Exemples Génération}
+
+\begin{multicols}{2}
+    \begin{figure}[H]
+        \centering
+        \includesvg[width=0.95\linewidth]{ressources/construction_0.svg}
+        \caption{Étape 0 de construction d'un KdTree, on a 11 Triangles}
+    \end{figure}
+
+    \begin{figure}[H]
+        \centering
+        \includesvg[width=0.95\linewidth]{ressources/construction_1.svg}
+        \caption{Étape 1 de construction d'un KdTree, le centroïde médian est marqué}
+    \end{figure}
+\end{multicols}
+
+
+\begin{multicols}{2}
+    \begin{figure}[H]
+        \centering
+        \includesvg[width=0.95\linewidth]{ressources/construction_2.svg}
+        \caption{Étape 2 de construction d'un KdTree, le centroïde médian est marqué}
+    \end{figure}
+
+    \begin{figure}[H]
+        \centering
+        \includesvg[width=0.95\linewidth]{ressources/construction_3.svg}
+        \caption{Étape 3 de construction d'un KdTree, le centroïde médian est marqué}
+    \end{figure}
+\end{multicols}
+
+On a maintenant une profondeur de KdTree, la racine étant la grande boite qui englobe tout les tirangles, $T_0$ Contiens les triangles colorés en rouge et jaune tandis que $T_1$ contiens ceux en jaune et vert. On peut également voir leur propre AABB réprésentés en rouge et vert.
+
+\end{justify}
+\end{document}
