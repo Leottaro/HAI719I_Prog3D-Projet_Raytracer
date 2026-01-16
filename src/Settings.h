@@ -20,20 +20,21 @@ public:
         PHASE_3_INTERPOLATION,
         PHASE_4_REFRACTION,
         PHASE_4_KDTREE,
-        SHOWCASE_PERFORMANCE,
-        SHOWCASE_QUALITY,
+        PICTURE,
+        BENCHMARKS,
     };
 
     enum class AvailableMeshes {
-        NONE,          // 0 triangles
-        TRIANGLE,      // 1 triangle
-        NEFERTITI,     // 562 triangles
-        UNIT_SPHERE_N, // 722 triangles
-        KNOT,          // 4160 triangles
-        FEMUR,         // 7798 triangles
-        PEGASO,        // 30658 triangles
-        FEMALE01,      // 368369 triangles
+        NONE = 0,            // 0 triangles
+        TRIANGLE = 1,        // 1 triangle
+        NEFERTITI = 562,     // 562 triangles
+        UNIT_SPHERE_N = 722, // 722 triangles
+        KNOT = 4160,         // 4160 triangles
+        FEMUR = 7798,        // 7798 triangles
+        PEGASO = 30658,      // 30658 triangles
+        FEMALE01 = 368369,   // 368369 triangles
     };
+    static constexpr AvailableMeshes AVAILABLE_MESHES[8] = {AvailableMeshes::NONE, AvailableMeshes::TRIANGLE, AvailableMeshes::NEFERTITI, AvailableMeshes::UNIT_SPHERE_N, AvailableMeshes::KNOT, AvailableMeshes::FEMUR, AvailableMeshes::PEGASO, AvailableMeshes::FEMALE01};
     inline static std::string availableMeshToPath(Settings::AvailableMeshes mesh) {
         switch (mesh) {
         case Settings::AvailableMeshes::FEMALE01:
@@ -61,8 +62,8 @@ public:
     static constexpr float EPSILON = 1e-4;
     inline static unsigned int NSAMPLES;
     inline static unsigned int MAX_BOUNCES;
-    inline static unsigned int SCREEN_WIDTH;
-    inline static unsigned int SCREEN_HEIGHT;
+    inline static unsigned int SCREEN_WIDTH = 480;
+    inline static unsigned int SCREEN_HEIGHT = 480;
 
     class Phong {
     public:
@@ -94,14 +95,12 @@ public:
         inline static bool ENABLE_TEXTURES;
     };
 
-    inline static void applySelectedPreset() {
+    inline static void applyPreset() {
         switch (selected_preset) {
         case Presets::PHASE_1:
             selected_renderer = 2;
             NSAMPLES = 16;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
             Mesh::ENABLE_INTERPOLATION = false;
             Phong::ENABLED = false;
@@ -117,8 +116,6 @@ public:
             selected_renderer = 2;
             NSAMPLES = 16;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
             Mesh::ENABLE_INTERPOLATION = false;
             Phong::ENABLED = true;
@@ -133,8 +130,6 @@ public:
             selected_renderer = 2;
             NSAMPLES = 16;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
             Mesh::ENABLE_INTERPOLATION = false;
             Phong::ENABLED = true;
@@ -149,8 +144,6 @@ public:
             selected_renderer = 2;
             NSAMPLES = 16;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
             Mesh::ENABLE_INTERPOLATION = false;
             Phong::ENABLED = true;
@@ -165,8 +158,6 @@ public:
             selected_renderer = 2;
             NSAMPLES = 16;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NONE;
             Mesh::ENABLE_INTERPOLATION = false;
             Phong::ENABLED = true;
@@ -181,8 +172,6 @@ public:
             selected_renderer = 3;
             NSAMPLES = 4;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NEFERTITI;
             Mesh::ENABLE_INTERPOLATION = false;
             Phong::ENABLED = true;
@@ -197,8 +186,6 @@ public:
             selected_renderer = 3;
             NSAMPLES = 4;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NEFERTITI;
             Mesh::ENABLE_INTERPOLATION = true;
             Phong::ENABLED = true;
@@ -210,11 +197,9 @@ public:
             Bonus::ENABLE_TEXTURES = false;
             break;
         case Presets::PHASE_4_REFRACTION:
-            selected_renderer = 2;
+            selected_renderer = 4;
             NSAMPLES = 16;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::NEFERTITI;
             Mesh::ENABLE_INTERPOLATION = true;
             Phong::ENABLED = true;
@@ -229,8 +214,6 @@ public:
             selected_renderer = 3;
             NSAMPLES = 16;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
             Mesh::MESH = AvailableMeshes::KNOT;
             Mesh::ENABLE_INTERPOLATION = true;
             Phong::ENABLED = true;
@@ -238,40 +221,44 @@ public:
             Material::ENABLE_MIRROR = true;
             Material::ENABLE_GLASS = true;
             Material::AIR_INDEX_MEDIUM = 1.0;
-            KdTree::MAX_LEAF_SIZE = 32;
+            KdTree::MAX_LEAF_SIZE = 16;
             Bonus::ENABLE_TEXTURES = false;
             break;
-        case Presets::SHOWCASE_PERFORMANCE:
-            NSAMPLES = 4;
-            MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
-            Mesh::MESH = AvailableMeshes::FEMALE01;
+
+        case Presets::PICTURE:
+            selected_renderer = 2;
+            NSAMPLES = 16;
+            MAX_BOUNCES = 10000;
+            Mesh::MESH = AvailableMeshes::PEGASO;
             Mesh::ENABLE_INTERPOLATION = true;
             Phong::ENABLED = true;
-            Phong::SHADOW_RAYS = 4;
+            Phong::SHADOW_RAYS = 32;
             Material::ENABLE_MIRROR = true;
             Material::ENABLE_GLASS = true;
             Material::AIR_INDEX_MEDIUM = 1.0;
-            KdTree::MAX_LEAF_SIZE = 32;
+            KdTree::MAX_LEAF_SIZE = 16;
             Bonus::ENABLE_TEXTURES = true;
             break;
-        case Presets::SHOWCASE_QUALITY:
-            NSAMPLES = 16;
+
+        case Presets::BENCHMARKS:
+            NSAMPLES = 1;
             MAX_BOUNCES = 100;
-            SCREEN_HEIGHT = 480;
-            SCREEN_WIDTH = 480;
-            Mesh::MESH = AvailableMeshes::FEMUR;
-            Mesh::ENABLE_INTERPOLATION = true;
-            Phong::ENABLED = true;
-            Phong::SHADOW_RAYS = 16;
-            Material::ENABLE_MIRROR = true;
-            Material::ENABLE_GLASS = true;
+            Mesh::MESH = AvailableMeshes::TRIANGLE;
+            Mesh::ENABLE_INTERPOLATION = false;
+            Phong::ENABLED = false;
+            Phong::SHADOW_RAYS = 0;
+            Material::ENABLE_MIRROR = false;
+            Material::ENABLE_GLASS = false;
             Material::AIR_INDEX_MEDIUM = 1.0;
-            KdTree::MAX_LEAF_SIZE = 32;
-            Bonus::ENABLE_TEXTURES = true;
+            KdTree::MAX_LEAF_SIZE = 0;
+            Bonus::ENABLE_TEXTURES = false;
             break;
         }
+    }
+
+    inline static void applyPreset(Presets preset) {
+        selected_preset = preset;
+        applyPreset();
     }
 };
 
@@ -304,11 +291,41 @@ inline std::ostream &operator<<(std::ostream &os, const Settings::Presets &prese
     case Settings::Presets::PHASE_4_KDTREE:
         os << "PHASE_4_KDTREE";
         break;
-    case Settings::Presets::SHOWCASE_PERFORMANCE:
-        os << "SHOWCASE_PERFORMANCE";
+    case Settings::Presets::PICTURE:
+        os << "PICTURE";
         break;
-    case Settings::Presets::SHOWCASE_QUALITY:
-        os << "SHOWCASE_QUALITY";
+    case Settings::Presets::BENCHMARKS:
+        os << "BENCHMARKS";
+        break;
+    }
+    return os;
+}
+
+inline std::ostream &operator<<(std::ostream &os, const Settings::AvailableMeshes &mesh) {
+    switch (mesh) {
+    case Settings::AvailableMeshes::NONE:
+        os << "NONE";
+        break;
+    case Settings::AvailableMeshes::TRIANGLE:
+        os << "TRIANGLE";
+        break;
+    case Settings::AvailableMeshes::NEFERTITI:
+        os << "NEFERTITI";
+        break;
+    case Settings::AvailableMeshes::UNIT_SPHERE_N:
+        os << "UNIT_SPHERE_N";
+        break;
+    case Settings::AvailableMeshes::KNOT:
+        os << "KNOT";
+        break;
+    case Settings::AvailableMeshes::FEMUR:
+        os << "FEMUR";
+        break;
+    case Settings::AvailableMeshes::PEGASO:
+        os << "PEGASO";
+        break;
+    case Settings::AvailableMeshes::FEMALE01:
+        os << "FEMALE01";
         break;
     }
     return os;

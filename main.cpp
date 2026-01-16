@@ -20,6 +20,7 @@
 #include "src/Settings.h"
 #include "src/Vec3.h"
 #include "src/matrixUtilities.h"
+#include "src/Benchmark.h"
 #include <GL/glut.h>
 #include <algorithm>
 #include <chrono>
@@ -37,6 +38,7 @@ using namespace std;
 // OpenGL/GLUT application code.
 // -------------------------------------------
 
+static ComputeShader compute_shader;
 static GLint window;
 static Camera camera;
 static bool mouseRotatePressed = false;
@@ -94,12 +96,15 @@ void initLight() {
 }
 
 void initRenderers() {
-    renderers.resize(5);
+    compute_shader = ComputeShader("ressources/shaders/compute.glsl");
+    renderers.resize(7);
     renderers[0].setup_single_sphere();
     renderers[1].setup_single_square();
     renderers[2].setup_cornell_box();
-    renderers[3].setup_single_mesh();
+    renderers[3].setup_meshes();
     renderers[4].setup_refraction_test();
+    renderers[5].setup_mesh_benchmark();
+    renderers[6].setup_gpu_benchmark(36);
 }
 
 void init() {
@@ -176,23 +181,9 @@ void idle() {
     glutPostRedisplay();
 }
 
-void writePPM(vector<Vec3> image, string filename) {
-    ofstream f(filename.c_str(), ios::binary);
-    if (f.fail()) {
-        cout << "Could not open file: " << filename << endl;
-        return;
-    }
-    f << "P3" << endl
-      << Settings::SCREEN_WIDTH << " " << Settings::SCREEN_HEIGHT << endl
-      << 255 << endl;
-    for (unsigned int i = 0; i < Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT; i++)
-        f << (int)(255.f * min<float>(1.f, image[i][0])) << " " << (int)(255.f * min<float>(1.f, image[i][1])) << " " << (int)(255.f * min<float>(1.f, image[i][2])) << " ";
-    f << endl;
-    f.close();
-}
-
 void key(unsigned char keyPressed, int x, int y) {
     Vec3 pos, dir;
+    int64_t elapsed;
     switch (keyPressed) {
     case 'f':
         if (fullScreen == true) {
@@ -222,13 +213,14 @@ void key(unsigned char keyPressed, int x, int y) {
     case 'r':
         camera.apply();
         rays.clear();
-        writePPM(renderers[Settings::selected_renderer].rayTraceFromCameraCPU(camera.getNearPlane(), camera.getFarPlane()), "rendu.ppm");
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        renderers[Settings::selected_renderer].rayTraceFromCameraCPU(camera.getNearPlane(), camera.getFarPlane(), elapsed);
+        renderers[Settings::selected_renderer].writeImage("rendu.ppm");
         break;
     case 'R':
         camera.apply();
         rays.clear();
-        writePPM(renderers[Settings::selected_renderer].rayTraceFromCameraGPU(camera.getNearPlane(), camera.getFarPlane()), "renduGPU.ppm");
+        renderers[Settings::selected_renderer].rayTraceFromCameraGPU(compute_shader, camera.getNearPlane(), camera.getFarPlane(), elapsed);
+        renderers[Settings::selected_renderer].writeImage("renduGPU.ppm");
         break;
     case '-':
         Settings::selected_renderer = (Settings::selected_renderer + renderers.size() - 1) % renderers.size();
@@ -238,15 +230,35 @@ void key(unsigned char keyPressed, int x, int y) {
         break;
     case 'p':
         Settings::selected_preset = static_cast<Settings::Presets>((static_cast<int>(Settings::selected_preset) + 1) % Settings::NB_PRESETS);
-        Settings::applySelectedPreset();
+        Settings::applyPreset();
         init();
         cout << "Settings preset set to: " << Settings::selected_preset << endl;
         break;
     case 'P':
         Settings::selected_preset = static_cast<Settings::Presets>((static_cast<int>(Settings::selected_preset) + Settings::NB_PRESETS - 1) % Settings::NB_PRESETS);
-        Settings::applySelectedPreset();
+        Settings::applyPreset();
         init();
         cout << "Settings preset set to: " << Settings::selected_preset << endl;
+        break;
+    case 'b':
+        cout << "Which test do you want to perform?" << endl;
+        cout << "1: Mesh Benchmark" << endl;
+        cout << "2: GPU Benchmark" << endl;
+        int choice;
+        cin >> choice;
+        if (choice != 1 && choice != 2) {
+            cout << "Invalid choice. No benchmark will be performed." << endl;
+            return;
+        }
+
+        if (choice == 1) {
+            while (true)
+                Benchmark::meshBenchmark({0, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024}, renderers[5]);
+        } else {
+            while (true)
+                Benchmark::gpuBenchmark({0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 196, 225, 256, 289, 324, 361, 400, 441, 484, 529, 576, 625, 676, 729, 784, 841, 900, 961, 1024}, compute_shader, renderers[6]);
+        }
+
         break;
     default:
         printUsage();
@@ -309,9 +321,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    Settings::selected_preset = Settings::Presets::PHASE_3_INTERPOLATION;
-    Settings::selected_renderer = 2;
-    Settings::applySelectedPreset();
+    Settings::applyPreset(Settings::Presets::PHASE_4_KDTREE);
 
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);

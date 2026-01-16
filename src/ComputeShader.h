@@ -153,13 +153,17 @@ struct ShaderMesh {
 class ComputeShader {
 private:
     unsigned int m_shader_id;
+    bool is_initialized;
     int success;
     char infoLog[512];
 
 public:
+    ComputeShader() : is_initialized(false) {}
+
     // constructor reads and builds the shader
     ComputeShader(const std::string &_compute_path) {
-        // load
+        is_initialized = false;
+
         std::ifstream compute_file;
         compute_file.open(_compute_path);
         if (!compute_file.is_open()) {
@@ -173,7 +177,6 @@ public:
         const char *compute_code = compute_code_str.c_str();
         compute_file.close();
 
-        // compile
         unsigned int compute = glCreateShader(GL_COMPUTE_SHADER);
         glShaderSource(compute, 1, &compute_code, NULL);
         glCompileShader(compute);
@@ -195,9 +198,18 @@ public:
         }
 
         glDeleteShader(compute);
+        is_initialized = true;
+    }
+
+    bool isInitialized() {
+        return is_initialized;
     }
 
     void use() {
+        if (!is_initialized) {
+            std::cerr << "ERROR::COMPUTE_SHADER::SHADER_NOT_INITIALIZED" << std::endl;
+            exit(EXIT_FAILURE);
+        }
         glUseProgram(m_shader_id);
     }
 

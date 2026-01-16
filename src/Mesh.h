@@ -138,13 +138,16 @@ public:
     void centerAndScaleToUnit();
     void scaleUnit();
 
+    size_t getNbVertices() const { return vertices.size(); };
+    size_t getNbTriangles() const { return triangles.size(); };
+
     virtual void build_arrays() {
         recomputeNormals();
         build_positions_array();
         build_normals_array();
         build_UVs_array();
         build_triangles_array();
-        if (Settings::KdTree::MAX_LEAF_SIZE > 0) {
+        if (Settings::KdTree::MAX_LEAF_SIZE > 0 && triangles.size() > 0) {
             build_kd_tree();
         }
     }
@@ -227,7 +230,7 @@ public:
     }
 
     RayTriangleIntersection intersect(Ray const &ray) const {
-        return Settings::KdTree::MAX_LEAF_SIZE > 0 ? intersect_kdtree(ray) : intersect_no_kdtree(ray);
+        return Settings::KdTree::MAX_LEAF_SIZE > 0 && triangles.size() > 0 ? intersect_kdtree(ray) : intersect_no_kdtree(ray);
     }
 
     RayTriangleIntersection intersect_no_kdtree(Ray const &ray) const {

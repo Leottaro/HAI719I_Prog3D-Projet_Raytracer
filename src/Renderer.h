@@ -17,6 +17,10 @@
 #include <cstring>
 
 struct Renderer : Scene {
+private:
+    vector<Vec3> image = vector<Vec3>();
+    unsigned int image_w = 0, image_h = 0;
+
 public:
     // =====================================================================================================
     // ================================================ CPU ================================================
@@ -38,17 +42,19 @@ public:
         }
     }
 
-    vector<Vec3> rayTraceFromCameraCPU(float _min_t, float _max_t) {
+    void rayTraceFromCameraCPU(float _min_t, float _max_t, int64_t &elapsed_ms) {
         cout << "Ray tracing a " << Settings::SCREEN_WIDTH << " x " << Settings::SCREEN_HEIGHT << " image (CPU) :" << endl;
         Vec3 pos = cameraSpaceToWorldSpace(Vec3(0.));
         int n_pixels = Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT;
-        vector<Vec3> image(n_pixels, Vec3(0, 0, 0));
+        image = vector<Vec3>(n_pixels, Vec3(0, 0, 0));
+        image_w = Settings::SCREEN_WIDTH;
+        image_h = Settings::SCREEN_HEIGHT;
 
         auto begin = chrono::high_resolution_clock::now();
 
-        for (unsigned int y = 0; y < Settings::SCREEN_HEIGHT; y++) {
-            for (unsigned int x = 0; x < Settings::SCREEN_WIDTH; x++) {
-                int pixel_i = y * Settings::SCREEN_WIDTH + x + 1;
+        for (unsigned int y = 0; y < image_h; y++) {
+            for (unsigned int x = 0; x < image_w; x++) {
+                int pixel_i = y * image_w + x + 1;
 
                 float percent = (float)pixel_i / n_pixels;
                 int64_t currently_elapsed = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - begin).count();
@@ -56,20 +62,34 @@ public:
 
                 cout << "\r\tCalculating pixel " << pixel_i << " of " << n_pixels << " (" << fixed << setprecision(2) << 100.f * percent << "% completed) ~" << remaining_ms / 1000. << "s remaining     " << flush;
                 for (unsigned int s = 0; s < Settings::NSAMPLES; ++s) {
-                    float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_WIDTH;
-                    float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / Settings::SCREEN_HEIGHT;
+                    float u = ((float)(x) + (float)(rand()) / (float)(RAND_MAX)) / image_w;
+                    float v = ((float)(y) + (float)(rand()) / (float)(RAND_MAX)) / image_h;
                     Vec3 dir = screen_space_to_worldSpace(u, v) - pos;
                     Vec3 color = rayTrace(Ray(pos, dir), _min_t, _max_t);
-                    image[x + y * Settings::SCREEN_WIDTH] += color;
+                    image[x + y * image_w] += color;
                 }
-                image[x + y * Settings::SCREEN_WIDTH] /= (float)Settings::NSAMPLES;
+                image[x + y * image_w] /= (float)Settings::NSAMPLES;
             }
         }
         auto end = chrono::high_resolution_clock::now();
-        auto elapsed = chrono::duration_cast<chrono::seconds>(end - begin).count();
+        elapsed_ms = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
         cout << endl
-             << "\tDone in " << elapsed << " seconds." << endl;
-        return image;
+             << "\tDone in " << elapsed_ms << "ms." << endl;
+    }
+
+    void writeImage(string filename) {
+        ofstream f(filename.c_str(), ios::binary);
+        if (f.fail()) {
+            cout << "Could not open file: " << filename << endl;
+            return;
+        }
+        f << "P3" << endl
+          << image_w << " " << image_h << endl
+          << 255 << endl;
+        for (unsigned int i = 0; i < image_w * image_h; i++)
+            f << (int)(255.f * min<float>(1.f, image[i][0])) << " " << (int)(255.f * min<float>(1.f, image[i][1])) << " " << (int)(255.f * min<float>(1.f, image[i][2])) << " ";
+        f << endl;
+        f.close();
     }
 
     // =====================================================================================================
@@ -77,7 +97,6 @@ public:
     // =====================================================================================================
 
 private:
-    ComputeShader m_shader;
     GLuint m_out_texture;
     GLuint m_spheres_ssbo, m_squares_ssbo, m_lights_ssbo, m_mesh_vertices_ssbo, m_mesh_triangles_ssbo, m_meshes_ssbo;
 
@@ -224,9 +243,8 @@ private:
         cout << "\tDone in " << elapsed << "ms" << endl;
     }
 
-    void updateGeneralUniforms(float _min_t, float _max_t) {
-        m_shader.set("imgOutput", 0);
-        m_shader.set("randomTexture2", 1);
+    void updateGeneralUniforms(ComputeShader &shader, float _min_t, float _max_t) {
+        shader.set("imgOutput", 0);
 
         GLdouble projection[16];
         GLdouble projectionInverse[16];
@@ -241,43 +259,43 @@ private:
         glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
         gluInvertMatrix(modelview, modelviewInverse);
 
-        m_shader.set("nearAndFarPlanes", nearAndFarPlanes[0], nearAndFarPlanes[1]);
-        m_shader.set("projectionInverse", projectionInverse);
-        m_shader.set("modelviewInverse", modelviewInverse);
+        shader.set("nearAndFarPlanes", nearAndFarPlanes[0], nearAndFarPlanes[1]);
+        shader.set("projectionInverse", projectionInverse);
+        shader.set("modelviewInverse", modelviewInverse);
 
-        m_shader.set("min_t", _min_t);
-        m_shader.set("max_t", _max_t);
+        shader.set("min_t", _min_t);
+        shader.set("max_t", _max_t);
     }
 
-    void updateSettingsUniforms() {
-        m_shader.set("settings.EPSILON", Settings::EPSILON);
-        m_shader.set("settings.NSAMPLES", Settings::NSAMPLES);
-        m_shader.set("settings.MAX_BOUNCES", Settings::MAX_BOUNCES);
-        m_shader.set("settings.SCREEN_WIDTH", Settings::SCREEN_WIDTH);
-        m_shader.set("settings.SCREEN_HEIGHT", Settings::SCREEN_HEIGHT);
+    void updateSettingsUniforms(ComputeShader &shader) {
+        shader.set("settings.EPSILON", Settings::EPSILON);
+        shader.set("settings.NSAMPLES", Settings::NSAMPLES);
+        shader.set("settings.MAX_BOUNCES", Settings::MAX_BOUNCES);
+        shader.set("settings.SCREEN_WIDTH", Settings::SCREEN_WIDTH);
+        shader.set("settings.SCREEN_HEIGHT", Settings::SCREEN_HEIGHT);
 
-        m_shader.set("settings.Phong.ENABLED", Settings::Phong::ENABLED);
-        m_shader.set("settings.Phong.SHADOW_RAYS", Settings::Phong::SHADOW_RAYS);
+        shader.set("settings.Phong.ENABLED", Settings::Phong::ENABLED);
+        shader.set("settings.Phong.SHADOW_RAYS", Settings::Phong::SHADOW_RAYS);
 
-        m_shader.set("settings.Material.ENABLE_MIRROR", Settings::Material::ENABLE_MIRROR);
-        m_shader.set("settings.Material.ENABLE_GLASS", Settings::Material::ENABLE_GLASS);
-        m_shader.set("settings.Material.AIR_INDEX_MEDIUM", Settings::Material::AIR_INDEX_MEDIUM);
+        shader.set("settings.Material.ENABLE_MIRROR", Settings::Material::ENABLE_MIRROR);
+        shader.set("settings.Material.ENABLE_GLASS", Settings::Material::ENABLE_GLASS);
+        shader.set("settings.Material.AIR_INDEX_MEDIUM", Settings::Material::AIR_INDEX_MEDIUM);
 
-        m_shader.set("settings.Mesh.ENABLE_INTERPOLATION", Settings::Mesh::ENABLE_INTERPOLATION);
+        shader.set("settings.Mesh.ENABLE_INTERPOLATION", Settings::Mesh::ENABLE_INTERPOLATION);
 
-        m_shader.set("settings.KdTree.EPSILON", Settings::KdTree::EPSILON);
-        m_shader.set("settings.KdTree.MAX_LEAF_SIZE", Settings::KdTree::MAX_LEAF_SIZE);
+        shader.set("settings.KdTree.EPSILON", Settings::KdTree::EPSILON);
+        shader.set("settings.KdTree.MAX_LEAF_SIZE", Settings::KdTree::MAX_LEAF_SIZE);
 
-        m_shader.set("settings.Bonus.ENABLE_TEXTURES", Settings::Bonus::ENABLE_TEXTURES);
+        shader.set("settings.Bonus.ENABLE_TEXTURES", Settings::Bonus::ENABLE_TEXTURES);
     }
 
-    void updateUniforms(float _min_t, float _max_t) {
+    void updateUniforms(ComputeShader &shader, float _min_t, float _max_t) {
         cout << "\tUpdating uniforms..." << flush;
         auto begin = chrono::high_resolution_clock::now();
 
-        m_shader.use();
-        updateGeneralUniforms(_min_t, _max_t);
-        updateSettingsUniforms();
+        shader.use();
+        updateGeneralUniforms(shader, _min_t, _max_t);
+        updateSettingsUniforms(shader);
 
         glFinish();
         auto end = chrono::high_resolution_clock::now();
@@ -285,11 +303,11 @@ private:
         cout << "\tDone in " << elapsed << "ms" << endl;
     }
 
-    void executeShader() {
+    void executeShader(ComputeShader &shader) {
         cout << "\tExecuting shader..." << flush;
         auto begin = chrono::high_resolution_clock::now();
 
-        m_shader.execute(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, Settings::NSAMPLES);
+        shader.execute(Settings::SCREEN_WIDTH, Settings::SCREEN_HEIGHT, Settings::NSAMPLES);
 
         glFinish();
         auto end = chrono::high_resolution_clock::now();
@@ -297,11 +315,13 @@ private:
         cout << "\tDone in " << elapsed << "ms" << endl;
     }
 
-    vector<Vec3> retrieveImage() {
+    void retrieveImage() {
         cout << "\tRetrieving the image..." << flush;
         auto begin = chrono::high_resolution_clock::now();
 
-        vector<Vec3> image(Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT);
+        image.resize(Settings::SCREEN_WIDTH * Settings::SCREEN_HEIGHT);
+        image_w = Settings::SCREEN_WIDTH;
+        image_h = Settings::SCREEN_HEIGHT;
         glBindTexture(GL_TEXTURE_2D, m_out_texture);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, image.data());
 
@@ -309,31 +329,28 @@ private:
         auto end = chrono::high_resolution_clock::now();
         auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
         cout << "\tDone in " << elapsed << "ms" << endl;
-        return image;
     }
 
 public:
-    vector<Vec3> rayTraceFromCameraGPU(float _min_t, float _max_t) {
+    void rayTraceFromCameraGPU(ComputeShader &shader, float _min_t, float _max_t, int64_t &elapsed_ms) {
         auto begin = chrono::high_resolution_clock::now();
         cout << "Ray tracing a " << Settings::SCREEN_WIDTH << " x " << Settings::SCREEN_HEIGHT << " image (GPU) :" << endl;
 
         createTextures();
         createSceneBuffers();
-        updateUniforms(_min_t, _max_t);
-        executeShader();
-        vector<Vec3> image = retrieveImage();
+        updateUniforms(shader, _min_t, _max_t);
+        executeShader(shader);
+        retrieveImage();
         deleteSceneBuffers();
         deleteTextures();
 
         glFinish();
         auto end = chrono::high_resolution_clock::now();
-        auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
-        cout << "\tTotal time: " << elapsed << "ms" << endl;
-
-        return image;
+        elapsed_ms = chrono::duration_cast<chrono::milliseconds>(end - begin).count();
+        cout << "\tTotal time: " << elapsed_ms << "ms" << endl;
     }
 
-    Renderer() : m_shader("ressources/shaders/compute.glsl") {}
+    Renderer() {}
 };
 
 #endif
