@@ -29,7 +29,10 @@ struct Material {
         image_id = -1;
         transparency = 0.0;
         index_medium = Settings::Material::AIR_INDEX_MEDIUM;
+        diffuse_material = Vec3(.5);
+        specular_material = Vec3(1.);
         ambient_material = Vec3();
+        shininess = 16.;
     }
 };
 

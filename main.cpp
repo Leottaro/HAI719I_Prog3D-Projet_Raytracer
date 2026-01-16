@@ -97,14 +97,15 @@ void initLight() {
 
 void initRenderers() {
     compute_shader = ComputeShader("ressources/shaders/compute.glsl");
-    renderers.resize(7);
+    renderers.resize(8);
     renderers[0].setup_single_sphere();
     renderers[1].setup_single_square();
     renderers[2].setup_cornell_box();
     renderers[3].setup_meshes();
-    renderers[4].setup_refraction_test();
-    renderers[5].setup_mesh_benchmark();
-    renderers[6].setup_gpu_benchmark(36);
+    renderers[4].setup_picture();
+    renderers[5].setup_refraction_test();
+    renderers[6].setup_mesh_benchmark();
+    renderers[7].setup_gpu_benchmark(36);
 }
 
 void init() {
@@ -240,26 +241,23 @@ void key(unsigned char keyPressed, int x, int y) {
         init();
         cout << "Settings preset set to: " << Settings::selected_preset << endl;
         break;
-    case 'b':
-        cout << "Which test do you want to perform?" << endl;
-        cout << "1: Mesh Benchmark" << endl;
-        cout << "2: GPU Benchmark" << endl;
-        int choice;
-        cin >> choice;
-        if (choice != 1 && choice != 2) {
-            cout << "Invalid choice. No benchmark will be performed." << endl;
-            return;
-        }
+    case 'b': {
+        Settings::applyPreset(Settings::Presets::PICTURE);
+        Settings::selected_renderer = 5;
 
-        if (choice == 1) {
-            while (true)
-                Benchmark::meshBenchmark({0, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024}, renderers[5]);
-        } else {
-            while (true)
-                Benchmark::gpuBenchmark({0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 196, 225, 256, 289, 324, 361, 400, 441, 484, 529, 576, 625, 676, 729, 784, 841, 900, 961, 1024}, compute_shader, renderers[6]);
+        int64_t elapsed_ms;
+        int fps = 60;
+        float time = 3.;
+        for (int i = 0; i < fps * time; i++) {
+            float t = float(i) / fps;
+            float index_medium = 1. + (1. - cos(M_PI * t / 3.)) / 2.;
+            cout << "i:" << i << "t:" << t << "index_medium:" << index_medium << " : " << endl;
+            renderers[Settings::selected_renderer].setup_refraction_test(index_medium);
+            renderers[Settings::selected_renderer].rayTraceFromCameraCPU(Settings::EPSILON, FLT_MAX, elapsed_ms);
+            renderers[Settings::selected_renderer]
+                .writeImage("animation2/" + std::to_string(i) + ".ppm");
         }
-
-        break;
+    } break;
     default:
         printUsage();
         break;
@@ -321,7 +319,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    Settings::applyPreset(Settings::Presets::PHASE_4_KDTREE);
+    Settings::applyPreset(Settings::Presets::PHASE_4_REFRACTION);
 
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);

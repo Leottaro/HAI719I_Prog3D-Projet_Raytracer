@@ -62,8 +62,8 @@ public:
     static constexpr float EPSILON = 1e-4;
     inline static unsigned int NSAMPLES;
     inline static unsigned int MAX_BOUNCES;
-    inline static unsigned int SCREEN_WIDTH = 480;
-    inline static unsigned int SCREEN_HEIGHT = 480;
+    inline static unsigned int SCREEN_WIDTH = 800;
+    inline static unsigned int SCREEN_HEIGHT = 800;
 
     class Phong {
     public:
@@ -197,7 +197,7 @@ public:
             Bonus::ENABLE_TEXTURES = false;
             break;
         case Presets::PHASE_4_REFRACTION:
-            selected_renderer = 4;
+            selected_renderer = 2;
             NSAMPLES = 16;
             MAX_BOUNCES = 100;
             Mesh::MESH = AvailableMeshes::NEFERTITI;
@@ -226,7 +226,7 @@ public:
             break;
 
         case Presets::PICTURE:
-            selected_renderer = 2;
+            selected_renderer = 4;
             NSAMPLES = 16;
             MAX_BOUNCES = 10000;
             Mesh::MESH = AvailableMeshes::PEGASO;

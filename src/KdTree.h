@@ -96,7 +96,6 @@ protected:
     BoundingBox bounding_box;
 
     size_t split_axis;
-    float split_pos;
 
     bool is_leaf;
     vector<KdTriangle> kd_triangles;
@@ -130,22 +129,14 @@ public:
         auto sort_function = [function_split_axis](KdTriangle a, KdTriangle b) { return a.centroid[function_split_axis] < b.centroid[function_split_axis]; };
         stable_sort(kd_triangles.begin(), kd_triangles.end(), sort_function);
         size_t median_i = kd_triangles.size() / 2;
-        this->split_pos = kd_triangles[median_i].centroid[split_axis];
-
-        // Generate the bounding boxes
-        Vec3 left_max = Vec3(bounding_box.max);
-        left_max[split_axis] = this->split_pos;
-        Vec3 right_min = Vec3(bounding_box.min);
-        right_min[split_axis] = this->split_pos;
-        BoundingBox left_bounding_box = BoundingBox(bounding_box.min, left_max);
-        BoundingBox right_bounding_box = BoundingBox(right_min, bounding_box.max);
+        float split_pos = kd_triangles[median_i].centroid[split_axis];
 
         // split the Triangles
         vector<KdTriangle> left_triangles;
         vector<KdTriangle> right_triangles;
         for (const KdTriangle &triangle : kd_triangles) {
-            bool is_before = triangle.isBefore(this->split_axis, this->split_pos);
-            bool is_after = triangle.isAfter(this->split_axis, this->split_pos);
+            bool is_before = triangle.isBefore(this->split_axis, split_pos);
+            bool is_after = triangle.isAfter(this->split_axis, split_pos);
             if (is_before) {
                 left_triangles.push_back(triangle);
             }
@@ -160,6 +151,14 @@ public:
             this->kd_triangles = kd_triangles;
             return;
         }
+
+        // Generate the bounding boxes
+        Vec3 left_max = Vec3(bounding_box.max);
+        left_max[split_axis] = split_pos;
+        Vec3 right_min = Vec3(bounding_box.min);
+        right_min[split_axis] = split_pos;
+        BoundingBox left_bounding_box = BoundingBox(bounding_box.min, left_max);
+        BoundingBox right_bounding_box = BoundingBox(right_min, bounding_box.max);
 
         size_t new_split_axis = (split_axis + 1) % 3;
         if (!left_triangles.empty()) {
