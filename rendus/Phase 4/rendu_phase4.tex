@@ -53,7 +53,7 @@
     \large Rendu projet phase 4
 }
 \date{16/01/2026}
-\author{Léo Hafdane – e22202516}
+\author{Léo Hafdane – e22202516 – \href{https://github.com/Leottaro/HAI719I_Prog3D-Projet_Raytracer}{Github}}
 \renewcommand{\contentsname}{Table des matières}
 
 
@@ -77,12 +77,11 @@
 \setcounter{page}{1}
 
 
-\section{Settings et présets}
+\section{Settings et préréglages}
 
-
-Dans la phase 3, j'ai introduit un système de Paramètres globaux (dans \verb*|Settings|) et de presets qu'on peut changer.
-Cette partie introduits plusieurs paramètres: \verb*|ENABLE_GLASS| , \verb*|AIR_INDEX_MEDIUM| et \verb*|MAX_LEAF_SIZE|
-ainsi que les nouveaux presets \verb*|PHASE_4_REFRACTION| et \verb*|PHASE_4_KDTREE| on peut toujours changer de preset avec $p$ et $P$.
+Lors de la phase 3, j'ai mis en place un système de paramètres globaux (dans \verb*|Settings|) ainsi que des préréglages modifiables.
+Cette partie introduit plusieurs paramètres : \verb*|ENABLE_GLASS|, \verb*|AIR_INDEX_MEDIUM| et \verb*|MAX_LEAF_SIZE|,
+ainsi que les nouveaux préréglages \verb*|PHASE_4_REFRACTION| et \verb*|PHASE_4_KDTREE|. On peut toujours changer de préréglage avec $p$ et $P$.
 
 
 
@@ -93,16 +92,17 @@ ainsi que les nouveaux presets \verb*|PHASE_4_REFRACTION| et \verb*|PHASE_4_KDTR
 Pour la réfraction, je me suis aidé de cette partie de page \href{https://en.wikipedia.org/wiki/Refractive_index#Refraction}{wikipédia} (en plus de \href{https://en.wikipedia.org/wiki/Refraction}{celle-ci}) pour comprendre le phénomène et de \href{https://amrhmorsy.github.io/blog/2024/RefractionVectorCalculation/}{ce site} pour m'aider à implémenter la réfraction en elle-même.
 Tout ceci se retrouve dans ma fonction \verb*|Scene::computeRefractionRay|.
 
-Puisque ce calcul dépends de la densité du matériau que le rayon quitte et de celle dans lequel il entre, il faut que les rayons gardent en mémoire les objets par lequels ils sont passés ainsi que leur densité.
-La structure \verb*|Ray| contiens maintenant une liste initialisée avec un \verb*|index_medium| à 1, celui de l'air.
+Puisque ce calcul dépend de la densité du matériau que le rayon quitte et de celle dans laquelle il entre, il faut que les rayons gardent en mémoire les objets par lesquels ils sont passés ainsi que leur densité.
+La structure \verb*|Ray| contient maintenant une liste initialisée avec un \verb*|index_medium| à 1, celui de l'air.
 Je suis parti du principe que la caméra ne se trouve jamais dans un solide.
 
 \begin{figure}[H]
     \centering
-    \href{run:ressources/refraction.mp4}{\includegraphics[height=0.8\textwidth]{ressources/refraction_thumbnail.png}}
+    \href{run:https://github.com/Leottaro/HAI719I_Prog3D-Projet_Raytracer/blob/main/rendus/Phase%204/ressources/refraction.mp4}{\includegraphics[height=0.8\textwidth]{ressources/refraction_thumbnail.png}}
     \caption{Cliquez sur l'image pour voir une démonstration vidéo (boucle).}
-    \subcaptionsetup{Sinon elle est \hyperlink{}{ici}}
+    \href{https://github.com/Leottaro/HAI719I_Prog3D-Projet_Raytracer/blob/main/rendus/Phase%204/ressources/refraction.mp4}{Lien vers la démonstration vidéo.}
 \end{figure}
+
 
 
 \newpage
@@ -118,18 +118,41 @@ De plus, cela permets également d'éviter de faire des calculs d'intersection s
 Pour construire une AABB, il suffit d'itérer sur tous les triangles et de garder en mémoire les composants minimum et maximum de chaque axe.
 La AABB finale étant le cube formé par $min_{x,y,z}$ et $max_{x,y,z}$.
 
+\subsection{Benchmarks}
+
+Pour évaluer l'efficacité de mon KdTree, j'ai réalisé des benchmarks testant, pour chaque mesh disponible, une taille maximale de feuille de 0 ainsi que les premières valeurs $2^n$ et $2^n+2^{n+1}$.
+Cela m'a donné un gros fichier csv : $raw\_mesh\_benchmark.csv$. J'ai dans un premier temps extrait les moyennes dans un tableau à deux entrées (trop grand pour que je l'affiche mais il est \href{https://github.com/Leottaro/HAI719I_Prog3D-Projet_Raytracer/blob/main/rendus/Phase%204/ressources/avg_mesh_benchmark.csv}{ici}).
+J'ai ensuite extrait les graphiques suivants :
+
+\begin{multicols}{2}
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\linewidth]{ressources/mesh_benchmark/avg_elapsed_vs_maxleafsize.png}
+        \caption{Temps moyen vs la taille max de feuille pour chaque mesh}
+        Ici, on peut voir que l'utilisation d'un KdTree réduit énormément le temps de calcul. On peut également voir qu'à partir de 32 triangles maximum par feuille, ce gain de performance commence à réduire significativement. Je n'ai malheureusement pas mesuré le temps de construction du KdTree par rapport au nombre de max de triangle par feuilles mais on peut faciement deviner que plus ce nombre diminue, plus le KdTree sera long à construire. L'entre deux parfait semble être autour de 32.
+    \end{figure}
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=\linewidth]{ressources/mesh_benchmark/relative_speedup_vs_maxleafsize.png}
+        \caption{Gain de temps relatif vs taille max de feuille pour chaque mesh}
+        Ici, la métrique "speedup" décrit le gain de temps au temps de calcul de la scène sans Mesh. il est calculé comme étant $speedup=\frac{reference}{avgMeshTime}$. Parrallèlement à l'autre diagramme, on peut mieux voir que le gain de temps est maximal autour de 8.
+    \end{figure}
+\end{multicols}
+
+
 \subsection{Construction}
 
 Un KdTree est défini par son ensemble de triangles $T$ où $|T|=n$, une AABB, un paramètre $\alpha$ décrivant le nombre maximal de triangles dans une feuille, $s$ son axe de coupe ainsi que deux enfants $k_1$ et $k_2$.
-L'idée du KdTree va de pair avec sa construction:
+L'idée du KdTree va de pair avec sa construction :
 \begin{itemize}
-    \item Si $n$ < $\alpha$ Alors le KdTree est une feuille, il n'a pas d'enfants mais garde son ensemble de triangles.
-    \item Sinon, le KdTree doit avoir deux enfants, avec deux nouveaux ensemble de triangles et deux nouvelles AABB:
+    \item Si $n < \alpha$, alors le KdTree est une feuille, il n'a pas d'enfants mais garde son ensemble de triangles.
+    \item Sinon, le KdTree doit avoir deux enfants, avec deux nouveaux ensembles de triangles et deux nouvelles AABB :
         \begin{enumerate}
-            \item Trier $T$ et calculer $C$ le centroïde médian sur l'axe $s$.
-            \item Séparer $T$ et deux tableaux $T_1$ et $T_2$ tq $T_1$ contiens tous les triangles qui ont au moins un point à gauche de $C$ sur l'axe $s$ (resp. $T_2$ à droite).
+            \item Trier $T$ et calculer $C$, le centroïde médian sur l'axe $s$.
+            \item Séparer $T$ en deux tableaux $T_1$ et $T_2$ tels que $T_1$ contient tous les triangles qui ont au moins un point à gauche de $C$ sur l'axe $s$ (resp. $T_2$ à droite).
             \item Calculer les deux nouvelles AABB.
-            \item Construire les deux enfants de la même manière mais avec $s = (s+1)\%3$
+            \item Construire les deux enfants de la même manière mais avec $s = (s+1)\%3$.
         \end{enumerate}
 \end{itemize}
 
@@ -137,17 +160,7 @@ L'idée du KdTree va de pair avec sa construction:
 
 L'intersection consiste en un simple parcours d'arbre, Si le KdTree actuel est une feuille alors il teste l'intersection à la bounding box des deux enfants. Et les parcours en premier la AABB ayant le plus petit $t$ et l'autre ensuite.
 
-\subsection{Benchmarks}
-
-Pour tester l'efficacité de mon KdTree, j'ai fais des benchmarks qui teste pour chaque mesh disponible une taille maximale de feuille de 0 et les premières puissance de 2.
-Cela m'a donné un gros fichier csv: $raw\_mesh\_benchmark.csv$ avec 3 colonnes: \verb*|Mesh;MaxLeafSize;ElapsedMs|. En le lisant, on peut voir que les performances augmentent énormément entre une taille de feuille de 0 (pas de KdTree) et un taille de feuille de 1. Que ensuite, les performances stagnent relativement jusqu'a 8 triangles par feuille pour finalement augmenter jusqu'à atteindre les mêmes performances que sans KdTree.
-
-% TODO:
-% From ressources/mesh_benchmark.csv that has "Mesh;MaxLeafSize;AvgElapsedMs" headers that features 9 different "Mesh" with 33 different "MaxLeafSize"
-% 1. Plot all meshes in one plot: Make one line plot: x = MaxLeafSize, y = AvgElapsedMs, colored by Mesh. use a log scale on the y-axis because times vary a lot between meshes. This highlights which meshes are more sensitive to MaxLeafSize and which remain flat.
-% 2. Relative speedup vs reference Using Mesh=NONE as a reference: Compute speedup = AvgElapsedMs(NONE) / AvgElapsedMs(mesh, MaxLeafSize). Plot x = MaxLeafSize, y = speedup, one line per mesh, to show how much each mesh benefits from the structure compared to the baseline.
-
-\newpage
+% \newpage
 
 \subsubsection{Exemples Génération}
 
@@ -180,7 +193,52 @@ Cela m'a donné un gros fichier csv: $raw\_mesh\_benchmark.csv$ avec 3 colonnes:
     \end{figure}
 \end{multicols}
 
-On a maintenant une profondeur de KdTree, la racine étant la grande boite qui englobe tout les tirangles, $T_0$ Contiens les triangles colorés en rouge et jaune tandis que $T_1$ contiens ceux en jaune et vert. On peut également voir leur propre AABB réprésentés en rouge et vert.
+On a maintenant 1 profondeur de KdTree, la racine étant la grande boite qui englobe tout les tirangles, $T_1$ Contiens les triangles colorés en rouge et jaune tandis que $T_2$ contiens ceux en jaune et vert. On peut également voir leur propre AABB réprésentés en rouge et vert.
+
+\section{Bonus}
+
+
+\subsection{Textures}
+
+J'ai implémenté les textures. 
+Je n'ai pas réimplémenté les paramètres d'OpenGL (\verb*|GL_CLAMP_TO_EDGE|, etc\dots) mais elles fonctionnent.
+J'ai introduit le paramètre \verb*|ENABLE_TEXTURES|.
+
+\subsection{GPU}
+
+J'ai créé \verb*|Renderer|, une surclasse de \verb*|Scene| qui gère tout le côté rendu, que ce soit celui basé sur le CPU ou le GPU.
+Mon accélération GPU fonctionne avec un compute shader. Je l'ai implémentée en gardant l'idée de création d'image spontanée et non en visant un temps réel. 
+Je compile alors le shader, transfère les données et l'exécute à la suite à chaque création d'image.
+Maintenant on peut appuyer sur $r$ pour faire un rendu sur CPU et $R$ pour le faire sur GPU.
+
+\subsubsection{Données de la scène}
+
+Pour faire passer les données de la scène, j'ai utilisé des storage buffers car ils me laissaient la liberté de faire passer autant d'objets que je le voulais.
+Un storage buffer vient cependant avec une petite complication : l'alignement des données. En effet, toute donnée doit être alignée selon des règles un peu trop complexes pour que je les réexplique ici.
+Cependant, après avoir compris ces règles et exploré Internet, j'ai découvert que WebGPU utilisait les mêmes règles qu'un storage buffer std430 et qu'il existait un site permettant de visualiser l'alignement des structures WGSL.
+J'ai donc fait \href{https://webgpufundamentals.org/webgpu/lessons/resources/wgsl-offset-computer.html#x=5d000001006305000000000000003d888b0237284d3025f2381bcb28899290cefc279bfb15c31b414688ec65ca60b432a34280bfdf40b8a186c91ed4e0f97428632dca45c8620bc930947162c168a9e11915418b1bb46890d871a8015b9714ee7d119be948d5d46b586e758ef2f7ad9218c9c5b9ead787170cc1ab13b8a12857dabd89c43e03bd683506dec1863b24f8cbb14adc6cfdc4ab489d28755e155fdf50fd55cded588f8f97ab27b9cf2059b7d45b851378ce74829442b08c81766ec0ae5130f175df6a21fc884037f7548b97d1cef8bfb249d82c14e65e7cdf8c6900636c3b74264a89dc7782cba29ea6a0146afc64af1a2ef2bbad3f490ee8710720a932288e95c72b777dcc0c7f306c9aad70647c40655a3fb7327c7e6c98383b7849bf36ae06a286da323d6ef216b838563cac0e6a49c799df8a0113b6ddcca8dbd2a109c9a3dc19c3805d70fdf395da7ed729151b3cb51e40e63038b59536d22007153d29a71c1ceb84a94bcdd4d5827f9d8ef631ea08af223604ed8c4a8667fdb4b0757c746c46770a5a8489bffe30f7b12f5c27d5693e835a46ad276e717425196623a8630043e84dc74354c61957a99dc500ec2e0b879cb6133402e61182bd2a5c68051b914bd418c744fe7d8393d506f480450e20fce0635754a601adcbab0febf66dffae15d8591a51b2c2897de9a2a40a9bcb7f194c30a691b6a52d3771a0d935fe034ca4}{ma petite page}.
+
+Pour pouvoir implémenter des mesh, j'ai créé de buffer qui contiens l'ensemble des vertex des mesh de la scène (resp. triangles). La structure Mesh quand à elle contiens juste un nombre de vertex, et un offset dans ce buffer (resp. triangles).
+
+\subsubsection{Limitations}
+
+Malheureusement, je n'ai pas eu le temps de faire fonctionner les textures. J'ai essayé d'implémenter un \verb*|SAMPLER_2D_ARRAY| mais il ne fonctionnait pas.
+Je n'ai pas non plus implémenté le KdTree, même si cela aurait été possible, je ne me voyais pas passer autant de temps à déboguer un KdTree sur le GPU.
+Avec le passage sur le GPU, le nombre de passages maximum dans un objet réfractant d'un rayon a été limité à 100. Je ne crois pas que je pouvais le contourner avec un buffer. Cependant, il est quand même très rare qu'un rayon passe dans 100 profondeurs de milieux différents donc je pense que ça va.
+
+\subsubsection{Benchmarks}
+
+
+Cette fois ci j'ai fait tourné un test qui comparait les performances CPU et GPU par rapport à une scène dont le nombre d'objets augmentent.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{ressources/gpu_benchmark/cpu_vs_gpu_elapsed_time.png}
+    \caption{Gain de temps relatif vs taille max de feuille pour chaque mesh}
+    Ici, on peut voir que le GPU est plus efficace que le CPU sur des petites scène mais on peut aussi voir que la tendence s'inverse autour de 100 objets.
+    Cela peut s'expliquer soit le fait que les transferts mémoire ont beaucoup plus d'effet sur le GPU que sur le CPU. Mais puisqu'une scène de 100 objets fait approximativement $12KiB$, ce qui semble peux pour que cela soit la cause.
+    Cela peut aussi s'expliquer par le fait que mon compute shader n'est pas très efficace, ce qui est probable puisque c'est mon premier et que j'essayait surtout de le faire fonctionner.
+\end{figure}
 
 \end{justify}
 \end{document}

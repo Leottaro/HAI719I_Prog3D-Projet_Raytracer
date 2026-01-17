@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2025.12.7)  17 JAN 2026 00:46
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2025.12.7)  17 JAN 2026 03:54
 entering extended mode
  \write18 enabled.
  file:line:error style messages enabled.
@@ -996,12 +996,12 @@ Package caption Info: End \AtBeginDocument code.
 
 Package pgfplots notification 'compat/show suggested version=true': you might benefit from \pgfplotsset{compat=1.18} (current compat level: 1.15).
 
-<ressources/preview.png, id=7, 903.375pt x 803.0pt>
+<ressources/preview.png, id=8, 903.375pt x 803.0pt>
 File: ressources/preview.png Graphic file (type png)
 <use ressources/preview.png>
 Package pdftex.def Info: ressources/preview.png  used on input line 67.
 (pdftex.def)             Requested size: 483.69687pt x 429.96222pt.
-<ressources/logo_UM.png, id=8, 963.6pt x 963.6pt>
+<ressources/logo_UM.png, id=9, 963.6pt x 963.6pt>
 File: ressources/logo_UM.png Graphic file (type png)
 <use ressources/logo_UM.png>
 Package pdftex.def Info: ressources/logo_UM.png  used on input line 70.
@@ -1009,88 +1009,90 @@ Package pdftex.def Info: ressources/logo_UM.png  used on input line 70.
 [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texlive/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc} <./ressources/preview.png (PNG copy)> <./ressources/logo_UM.png>]
-LaTeX Font Info:    Trying to load font information for T1+cmtt on input line 83.
+LaTeX Font Info:    Trying to load font information for T1+cmtt on input line 82.
  (/usr/share/texlive/texmf-dist/tex/latex/base/t1cmtt.fd
 File: t1cmtt.fd 2022/07/10 v2.5l Standard LaTeX font definitions
 )
-LaTeX Font Info:    Trying to load font information for U+msa on input line 85.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 84.
  (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 85.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 84.
  (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-LaTeX Font Info:    Trying to load font information for U+rsfs on input line 85.
+LaTeX Font Info:    Trying to load font information for U+rsfs on input line 84.
  (/usr/share/texlive/texmf-dist/tex/latex/jknapltx/ursfs.fd
 File: ursfs.fd 1998/03/24 rsfs font definition file (jk)
 )
-<ressources/refraction_thumbnail.png, id=23, 803.0pt x 803.0pt>
+Overfull \hbox (0.47949pt too wide) in paragraph at lines 82--85
+[][]\T1/cmtt/m/n/12 AIR_INDEX_MEDIUM []\T1/cmr/m/n/12 et [][]\T1/cmtt/m/n/12 MAX_LEAF_SIZE[]\T1/cmr/m/n/12 , ainsi que les nou-veaux pré-ré-glages [][]\T1/cmtt/m/n/12 PHASE_4_REFRACTION
+ []
+
+<ressources/refraction_thumbnail.png, id=24, 803.0pt x 803.0pt>
 File: ressources/refraction_thumbnail.png Graphic file (type png)
 <use ressources/refraction_thumbnail.png>
-Package pdftex.def Info: ressources/refraction_thumbnail.png  used on input line 102.
+Package pdftex.def Info: ressources/refraction_thumbnail.png  used on input line 101.
 (pdftex.def)             Requested size: 386.96722pt x 386.95897pt.
-
-/home/leo/Cours/S7/HAI719I_Prog3D/Projet_Raytracer/rendus/Phase 4/rendu_phase4.tex:104: Undefined control sequence.
-l.104     \subcaptionsetup
-                          {Sinon elle est \hyperlink{}{ici}}
-The control sequence at the end of the top line
-of your error message was never \def'ed. If you have
-misspelled it (e.g., `\hobx'), type `I' and the correct
-spelling (e.g., `I\hbox'). Otherwise just continue,
-and I'll forget about whatever was undefined.
-
-
-Package hyperref Warning: Suppressing link with empty target on input line 104.
-
-[1 <./ressources/refraction_thumbnail.png (PNG copy)>] [2{/usr/share/texlive/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc}]
-Package svg Info: Last page of `./svg-inkscape/construction_0_svg-tex.pdf' is 1 on input line 157.
+[1 <./ressources/refraction_thumbnail.png (PNG copy)>]
+<ressources/mesh_benchmark/avg_elapsed_vs_maxleafsize.png, id=38, 715.473pt x 426.393pt>
+File: ressources/mesh_benchmark/avg_elapsed_vs_maxleafsize.png Graphic file (type png)
+<use ressources/mesh_benchmark/avg_elapsed_vs_maxleafsize.png>
+Package pdftex.def Info: ressources/mesh_benchmark/avg_elapsed_vs_maxleafsize.png  used on input line 130.
+(pdftex.def)             Requested size: 236.84843pt x 141.15254pt.
+<ressources/mesh_benchmark/relative_speedup_vs_maxleafsize.png, id=40, 715.473pt x 426.393pt>
+File: ressources/mesh_benchmark/relative_speedup_vs_maxleafsize.png Graphic file (type png)
+<use ressources/mesh_benchmark/relative_speedup_vs_maxleafsize.png>
+Package pdftex.def Info: ressources/mesh_benchmark/relative_speedup_vs_maxleafsize.png  used on input line 137.
+(pdftex.def)             Requested size: 236.84843pt x 141.15254pt.
+ [2 <./ressources/mesh_benchmark/avg_elapsed_vs_maxleafsize.png> <./ressources/mesh_benchmark/relative_speedup_vs_maxleafsize.png>]
+Package svg Info: Last page of `./svg-inkscape/construction_0_svg-tex.pdf' is 1 on input line 170.
  (./svg-inkscape/construction_0_svg-tex.pdf_tex
-<./svg-inkscape/construction_0_svg-tex.pdf, id=54, page=1, 895.84688pt x 673.01437pt>
+<./svg-inkscape/construction_0_svg-tex.pdf, id=58, page=1, 895.84688pt x 673.01437pt>
 File: ./svg-inkscape/construction_0_svg-tex.pdf Graphic file (type pdf)
 <use ./svg-inkscape/construction_0_svg-tex.pdf, page 1>
 Package pdftex.def Info: ./svg-inkscape/construction_0_svg-tex.pdf , page1 used on input line 56.
 (pdftex.def)             Requested size: 225.00528pt x 169.03365pt.
 )
-Package svg Info: Last page of `./svg-inkscape/construction_1_svg-tex.pdf' is 2 on input line 163.
+Package svg Info: Last page of `./svg-inkscape/construction_1_svg-tex.pdf' is 2 on input line 176.
  (./svg-inkscape/construction_1_svg-tex.pdf_tex
-<./svg-inkscape/construction_1_svg-tex.pdf, id=56, page=1, 895.84688pt x 673.01437pt>
+<./svg-inkscape/construction_1_svg-tex.pdf, id=60, page=1, 895.84688pt x 673.01437pt>
 File: ./svg-inkscape/construction_1_svg-tex.pdf Graphic file (type pdf)
 <use ./svg-inkscape/construction_1_svg-tex.pdf, page 1>
 Package pdftex.def Info: ./svg-inkscape/construction_1_svg-tex.pdf , page1 used on input line 56.
 (pdftex.def)             Requested size: 225.00528pt x 169.03365pt.
-<./svg-inkscape/construction_1_svg-tex.pdf, id=57, page=2, 895.84688pt x 673.01437pt>
+<./svg-inkscape/construction_1_svg-tex.pdf, id=61, page=2, 895.84688pt x 673.01437pt>
 File: ./svg-inkscape/construction_1_svg-tex.pdf Graphic file (type pdf)
 <use ./svg-inkscape/construction_1_svg-tex.pdf, page 2>
 Package pdftex.def Info: ./svg-inkscape/construction_1_svg-tex.pdf , page2 used on input line 58.
 (pdftex.def)             Requested size: 225.00528pt x 169.03365pt.
 )
-Package svg Info: Last page of `./svg-inkscape/construction_2_svg-tex.pdf' is 2 on input line 172.
+Package svg Info: Last page of `./svg-inkscape/construction_2_svg-tex.pdf' is 2 on input line 185.
  (./svg-inkscape/construction_2_svg-tex.pdf_tex
-<./svg-inkscape/construction_2_svg-tex.pdf, id=59, page=1, 895.84688pt x 673.01437pt>
+<./svg-inkscape/construction_2_svg-tex.pdf, id=63, page=1, 895.84688pt x 673.01437pt>
 File: ./svg-inkscape/construction_2_svg-tex.pdf Graphic file (type pdf)
 <use ./svg-inkscape/construction_2_svg-tex.pdf, page 1>
 Package pdftex.def Info: ./svg-inkscape/construction_2_svg-tex.pdf , page1 used on input line 56.
 (pdftex.def)             Requested size: 225.00528pt x 169.03365pt.
-<./svg-inkscape/construction_2_svg-tex.pdf, id=60, page=2, 895.84688pt x 673.01437pt>
+<./svg-inkscape/construction_2_svg-tex.pdf, id=64, page=2, 895.84688pt x 673.01437pt>
 File: ./svg-inkscape/construction_2_svg-tex.pdf Graphic file (type pdf)
 <use ./svg-inkscape/construction_2_svg-tex.pdf, page 2>
 Package pdftex.def Info: ./svg-inkscape/construction_2_svg-tex.pdf , page2 used on input line 58.
 (pdftex.def)             Requested size: 225.00528pt x 169.03365pt.
 )
-Package svg Info: Last page of `./svg-inkscape/construction_3_svg-tex.pdf' is 2 on input line 178.
+Package svg Info: Last page of `./svg-inkscape/construction_3_svg-tex.pdf' is 2 on input line 191.
  (./svg-inkscape/construction_3_svg-tex.pdf_tex
-<./svg-inkscape/construction_3_svg-tex.pdf, id=62, page=1, 895.84688pt x 673.01437pt>
+<./svg-inkscape/construction_3_svg-tex.pdf, id=66, page=1, 895.84688pt x 673.01437pt>
 File: ./svg-inkscape/construction_3_svg-tex.pdf Graphic file (type pdf)
 <use ./svg-inkscape/construction_3_svg-tex.pdf, page 1>
 Package pdftex.def Info: ./svg-inkscape/construction_3_svg-tex.pdf , page1 used on input line 56.
 (pdftex.def)             Requested size: 225.00528pt x 169.03365pt.
-<./svg-inkscape/construction_3_svg-tex.pdf, id=63, page=2, 895.84688pt x 673.01437pt>
+<./svg-inkscape/construction_3_svg-tex.pdf, id=67, page=2, 895.84688pt x 673.01437pt>
 File: ./svg-inkscape/construction_3_svg-tex.pdf Graphic file (type pdf)
 <use ./svg-inkscape/construction_3_svg-tex.pdf, page 2>
 Package pdftex.def Info: ./svg-inkscape/construction_3_svg-tex.pdf , page2 used on input line 58.
 (pdftex.def)             Requested size: 225.00528pt x 169.03365pt.
-) [3 <./svg-inkscape/construction_0_svg-tex.pdf> <./svg-inkscape/construction_1_svg-tex.pdf
+) [3{/usr/share/texlive/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc} <./svg-inkscape/construction_0_svg-tex.pdf> <./svg-inkscape/construction_1_svg-tex.pdf
 
 pdfTeX warning: pdflatex (file ./svg-inkscape/construction_1_svg-tex.pdf): PDF inclusion: multiple pdfs with page group included in a single page
 > <./svg-inkscape/construction_1_svg-tex.pdf
@@ -1108,20 +1110,30 @@ pdfTeX warning: pdflatex (file ./svg-inkscape/construction_3_svg-tex.pdf): PDF i
 > <./svg-inkscape/construction_3_svg-tex.pdf
 
 pdfTeX warning: pdflatex (file ./svg-inkscape/construction_3_svg-tex.pdf): PDF inclusion: multiple pdfs with page group included in a single page
->] (rendu_phase4_out/rendu_phase4.aux) ) 
+>]
+Overfull \hbox (27.12524pt too wide) in paragraph at lines 203--206
+\T1/cmr/m/n/12 J'ai im-plé-menté les tex-tures. Je n'ai pas ré-im-plé-menté les pa-ra-mètres d'OpenGL ([][]\T1/cmtt/m/n/12 GL_CLAMP_TO_EDGE[]\T1/cmr/m/n/12 ,
+ []
+
+<ressources/gpu_benchmark/cpu_vs_gpu_elapsed_time.png, id=111, 715.473pt x 426.393pt>
+File: ressources/gpu_benchmark/cpu_vs_gpu_elapsed_time.png Graphic file (type png)
+<use ressources/gpu_benchmark/cpu_vs_gpu_elapsed_time.png>
+Package pdftex.def Info: ressources/gpu_benchmark/cpu_vs_gpu_elapsed_time.png  used on input line 236.
+(pdftex.def)             Requested size: 241.84843pt x 144.12589pt.
+[4] [5 <./ressources/gpu_benchmark/cpu_vs_gpu_elapsed_time.png>] (rendu_phase4_out/rendu_phase4.aux) ) 
 Here is how much of TeX's memory you used:
- 41554 strings out of 476041
- 940542 string characters out of 5793174
- 1859388 words of memory out of 6000000
- 61263 multiletter control sequences out of 15000+600000
+ 41595 strings out of 476041
+ 941998 string characters out of 5793174
+ 1861388 words of memory out of 6000000
+ 61288 multiletter control sequences out of 15000+600000
  526565 words of font info for 67 fonts, out of 8000000 for 9000
  1137 hyphenation exceptions out of 8191
- 94i,15n,92p,801b,751s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 94i,15n,92p,1270b,751s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/cm-super/sfbx1200.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/cm-super/sfbx1440.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/cm-super/sfbx1728.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/cm-super/sfbx2074.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/cm-super/sfcc1200.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/cm-super/sfrm1200.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/cm-super/sfrm1440.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/cm-super/sftt1200.pfb>
-Output written on rendu_phase4_out/rendu_phase4.pdf (4 pages, 1822683 bytes).
+Output written on rendu_phase4_out/rendu_phase4.pdf (6 pages, 3466277 bytes).
 PDF statistics:
- 190 PDF objects out of 1000 (max. 8388607)
- 133 compressed objects within 2 object streams
- 22 named destinations out of 1000 (max. 500000)
- 147 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 238 PDF objects out of 1000 (max. 8388607)
+ 173 compressed objects within 2 object streams
+ 33 named destinations out of 1000 (max. 500000)
+ 210 words of extra memory for PDF output out of 10000 (max. 10000000)
 
